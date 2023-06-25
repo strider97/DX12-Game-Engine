@@ -74,3 +74,25 @@ float4 PSMain(PSInput vsOut) : SV_TARGET
     radiance *= lightIntensity;
     return float4(color, 1);
 }
+
+float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
+{
+    float kd = 0.4;
+    float ks = 0.2;
+    float ka = 0.1;
+    float3 color = float3(0.8, 0.8, 0.8);
+    bool isMetal = false;
+    float lightIntensity = 1.2f;
+
+    float3 l = normalize(float3(6, 9, 4));
+    float3 v = normalize(vsOut.eye - vsOut.worldPos);
+    float3 h = normalize(l + v);
+
+    float3 diff = kd * saturate(dot(l, vsOut.normal));
+    float3 spec = pow(saturate(dot(vsOut.normal, h)), 32.0f);
+
+    float3 radiance = color * (diff + ka) + 0 * spec * (isMetal ? (color * ks) : kd);
+    radiance *= lightIntensity;
+    // color = abs(vsOut.normal);
+    return float4(radiance, 1);
+}

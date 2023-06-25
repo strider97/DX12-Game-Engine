@@ -114,6 +114,7 @@
   <ItemGroup>
     <ClInclude Include="BasicGameEngine.h" />
     <ClInclude Include="ObjLoader.h" />
+    <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="tiny_obj_loader.h" />
     <ClInclude Include="WICTextureLoader12.h" />
     <ClInclude Include="Win32Application.h" />
@@ -126,6 +127,7 @@
   <ItemGroup>
     <ClCompile Include="BasicGameEngine.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="WICTextureLoader12.cpp" />
     <ClCompile Include="Win32Application.cpp" />
     <ClCompile Include="DXSample.cpp" />
@@ -148,6 +150,8 @@
     </FxCompile>
   </ItemGroup>
   <ItemGroup>
+    <Image Include="Textures\baked.png" />
+    <Image Include="Textures\football.jpg" />
     <Image Include="Textures\wood.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
