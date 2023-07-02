@@ -13,7 +13,8 @@ cbuffer SceneConstantBuffer : register(b0)
 {
     float4x4 PV;
     float3 eye;
-    float padding[45];
+    float4x4 LPV;
+    float padding[29];
 };
 
 struct VSInput

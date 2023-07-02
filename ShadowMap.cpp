@@ -1,15 +1,15 @@
 #include "stdafx.h"
 #include "ShadowMap.h"
 
-ShadowMap::ShadowMap(ID3D12Device* device, UINT width,
-	UINT height)
+ShadowMap::ShadowMap(ID3D12Device *device, UINT width,
+					 UINT height)
 {
 	md3dDevice = device;
 	mWidth = width;
 	mHeight = height;
-	mViewport = { 0.0f, 0.0f, (float)width,
-	(float)height, 0.0f, 1.0f };
-	mScissorRect = { 0, 0, (int)width, (int)height };
+	mViewport = {0.0f, 0.0f, (float)width,
+				 (float)height, 0.0f, 1.0f};
+	mScissorRect = {0, 0, (int)width, (int)height};
 	BuildResource();
 }
 void ShadowMap::BuildResource()
@@ -40,10 +40,14 @@ void ShadowMap::BuildResource()
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		&optClear,
 		IID_PPV_ARGS(&mShadowMap)));
-}ID3D12Resource* ShadowMap::Resource()
+}
+
+ID3D12Resource *ShadowMap::Resource()
 {
 	return mShadowMap.Get();
-}CD3DX12_GPU_DESCRIPTOR_HANDLE ShadowMap::Srv() const
+}
+
+CD3DX12_GPU_DESCRIPTOR_HANDLE ShadowMap::Srv() const
 {
 	return mhGpuSrv;
 }
@@ -51,4 +55,44 @@ void ShadowMap::BuildResource()
 CD3DX12_CPU_DESCRIPTOR_HANDLE ShadowMap::Dsv() const
 {
 	return mhCpuDsv;
-}
+}
+
+D3D12_VIEWPORT ShadowMap::Viewport() const
+{
+	return mViewport;
+}
+
+D3D12_RECT ShadowMap::ScissorRect() const
+{
+	return mScissorRect;
+}
+
+void ShadowMap::BuildDescriptors(
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpuSrv, CD3DX12_GPU_DESCRIPTOR_HANDLE hGpuSrv,
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hCpuDsv)
+{
+	mhCpuDsv = hCpuDsv;
+	mhGpuSrv = hGpuSrv;
+	mhCpuSrv = hCpuSrv;
+	BuildDescriptors();
+}
+
+void ShadowMap::BuildDescriptors()
+{
+	D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Format = DXGI_FORMAT_R24_UNORM_X8_TYPELESS; 
+	srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+	srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+    srvDesc.Texture2D.PlaneSlice = 0;
+	md3dDevice->CreateShaderResourceView(mShadowMap.Get(), &srvDesc, mhCpuSrv);
+
+	D3D12_DEPTH_STENCIL_VIEW_DESC dsvDesc; 
+    dsvDesc.Flags = D3D12_DSV_FLAG_NONE;
+    dsvDesc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    dsvDesc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    dsvDesc.Texture2D.MipSlice = 0;
+	md3dDevice->CreateDepthStencilView(mShadowMap.Get(), &dsvDesc, mhCpuDsv);
+}

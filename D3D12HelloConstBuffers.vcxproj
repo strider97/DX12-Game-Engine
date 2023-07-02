@@ -127,6 +127,7 @@
   <ItemGroup>
     <ClCompile Include="BasicGameEngine.cpp" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="DirectionLight.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="WICTextureLoader12.cpp" />
     <ClCompile Include="Win32Application.cpp" />

@@ -129,7 +129,7 @@ void BasicGameEngine::LoadPipeline()
         // Flags indicate that this descriptor heap can be bound to the pipeline 
         // and that descriptors contained in it can be referenced by a root table.
         D3D12_DESCRIPTOR_HEAP_DESC cbvHeapDesc = {};
-        cbvHeapDesc.NumDescriptors = 2;
+        cbvHeapDesc.NumDescriptors = 3;
         cbvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
         cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cbvHeap)));
@@ -212,6 +212,10 @@ void BasicGameEngine::LoadPipelineAssets()
         ComPtr<ID3DBlob> vertexShader;
         ComPtr<ID3DBlob> pixelShader;
 
+        ComPtr<ID3DBlob> shadowVertexShader;
+        ComPtr<ID3DBlob> shadowPixelShader;
+
+
 #if defined(_DEBUG)
         // Enable better shader debugging with the graphics debugging tools.
         UINT compileFlags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
@@ -221,6 +225,8 @@ void BasicGameEngine::LoadPipelineAssets()
 
         ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"shaders.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr));
         ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"shaders.hlsl").c_str(), nullptr, nullptr, "PSSimpleAlbedo", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
+
+
 
         // Define the vertex input layout.
         D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
@@ -253,10 +259,11 @@ void BasicGameEngine::LoadPipelineAssets()
 
         // create a depth stencil descriptor heap so we can get a pointer to the depth stencil buffer
         D3D12_DESCRIPTOR_HEAP_DESC dsvHeapDesc = {};
-        dsvHeapDesc.NumDescriptors = 1;
+        dsvHeapDesc.NumDescriptors = 2;
         dsvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
         dsvHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
         ThrowIfFailed(m_device->CreateDescriptorHeap(&dsvHeapDesc, IID_PPV_ARGS(m_dsvHeap.GetAddressOf())));
+        m_dsvHeapDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
 
         D3D12_RESOURCE_DESC depthStencilResourceDesc;
         depthStencilResourceDesc.Dimension =
@@ -293,7 +300,7 @@ void BasicGameEngine::LoadPipelineAssets()
         psoDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
         psoDesc.RasterizerState = rasterizerDesc;
         psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-        psoDesc.DepthStencilState = depthStencilDesc;
+        psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);;
         psoDesc.SampleMask = UINT_MAX;
         psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         psoDesc.NumRenderTargets = 1;
@@ -301,6 +308,26 @@ void BasicGameEngine::LoadPipelineAssets()
         psoDesc.SampleDesc.Count = 1;
 
         ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pipelineState)));
+
+        D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPipelineDesc = {};
+        shadowPipelineDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
+        shadowPipelineDesc.pRootSignature = m_rootSignature.Get();
+        shadowPipelineDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
+        shadowPipelineDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
+        shadowPipelineDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+        shadowPipelineDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+        shadowPipelineDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);;
+        shadowPipelineDesc.SampleMask = UINT_MAX;
+        shadowPipelineDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+        shadowPipelineDesc.NumRenderTargets = 0;
+        shadowPipelineDesc.SampleDesc.Count = 1;
+        shadowPipelineDesc.RasterizerState.DepthBias = 100000;
+        shadowPipelineDesc.RasterizerState.DepthBiasClamp = 0.0f;
+        shadowPipelineDesc.RasterizerState.SlopeScaledDepthBias = 1.0f;
+        shadowPipelineDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
+
+        ThrowIfFailed(m_device->CreateGraphicsPipelineState(&shadowPipelineDesc, IID_PPV_ARGS(&m_shadowPipelineState)));
+
     }
 
     // Create the command list.
@@ -308,7 +335,18 @@ void BasicGameEngine::LoadPipelineAssets()
 
     // Command lists are created in the recording state, but there is nothing
     // to record yet. The main loop expects it to be closed, so close it now.
-//    ThrowIfFailed(m_commandList->Close());
+    ThrowIfFailed(m_commandList->Close());
+
+    /*
+    * Create shadow pipeline state
+    */
+
+    ThrowIfFailed(m_device->CreateCommandList(
+        0, D3D12_COMMAND_LIST_TYPE_DIRECT, m_commandAllocator.Get(), m_shadowPipelineState.Get(), 
+        IID_PPV_ARGS(&m_ShadowCommandList)));
+
+    ThrowIfFailed(m_ShadowCommandList->Close());
+
 
     // Create the vertex buffer.
     {
@@ -340,6 +378,21 @@ void BasicGameEngine::LoadPipelineAssets()
         m_vertexBufferView.SizeInBytes = vertexBufferSize;
     }
 
+    // Create shadow map
+    {
+        // m_shadowMap = &ShadowMap(m_device.Get(), 1024, 1024);
+        // CD3DX12_CPU_DESCRIPTOR_HANDLE hSrv(m_cbvHeap -> GetCPUDescriptorHandleForHeapStart());
+        // hSrv.Offset(2, m_cbvHeapDescriptorSize);
+
+        // CD3DX12_CPU_DESCRIPTOR_HANDLE hDsv(m_dsvHeap -> GetCPUDescriptorHandleForHeapStart());
+        // hDsv.Offset(1, m_dsvHeapDescriptorSize);
+
+        // CD3DX12_GPU_DESCRIPTOR_HANDLE hSrvGpu(m_cbvHeap -> GetGPUDescriptorHandleForHeapStart());
+        // hSrvGpu.Offset(2, m_cbvHeapDescriptorSize);
+
+        // m_shadowMap->BuildDescriptors(hSrv, hSrvGpu, hDsv);
+    }
+
     // Create the constant buffer.
     {
         const UINT constantBufferSize = sizeof(SceneConstantBuffer);    // CB size is required to be 256-byte aligned.
@@ -367,7 +420,7 @@ void BasicGameEngine::LoadPipelineAssets()
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
     m_device->CreateDepthStencilView(m_depthStencilBuffer.Get(), nullptr, dsvHandle);
-
+    m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get());
     m_commandList->ResourceBarrier(
         1,
         &CD3DX12_RESOURCE_BARRIER::Transition(
@@ -434,6 +487,25 @@ void BasicGameEngine::OnDestroy()
     WaitForPreviousFrame();
 
     CloseHandle(m_fenceEvent);
+}
+
+void BasicGameEngine::drawShadowMap() {
+    ThrowIfFailed(m_ShadowCommandList->Reset(m_commandAllocator.Get(), m_shadowPipelineState.Get()));
+    m_ShadowCommandList->SetGraphicsRootSignature(m_rootSignature.Get());
+    ID3D12DescriptorHeap* ppHeaps[] = { m_cbvHeap.Get() };
+    m_ShadowCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+
+    CD3DX12_GPU_DESCRIPTOR_HANDLE cbv_srv_handle(m_cbvHeap->GetGPUDescriptorHandleForHeapStart());
+    m_ShadowCommandList->SetGraphicsRootDescriptorTable(0, cbv_srv_handle);
+    // cbv_srv_handle.Offset(1, m_cbvHeapDescriptorSize);
+    // m_ShadowCommandList->SetGraphicsRootDescriptorTable(1, cbv_srv_handle);
+
+    m_ShadowCommandList->RSSetViewports(1, &m_shadowMap->Viewport());
+    m_ShadowCommandList->RSSetScissorRects(1, &m_shadowMap->ScissorRect());
+
+    m_ShadowCommandList->OMSetRenderTargets(0, nullptr, false, &m_shadowMap->Dsv());
+
+
 }
 
 // Fill the command list with all the render commands and dependent state.

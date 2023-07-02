@@ -15,6 +15,8 @@
 #include <chrono>
 #include <ctime>  
 #include "Camera.cpp"
+#include "DirectionLight.cpp"
+#include "ShadowMap.h"
 
 using namespace DirectX;
 
@@ -66,6 +68,7 @@ public:
     virtual void OnUpdate();
     virtual void OnRender();
     virtual void OnDestroy();
+    void drawShadowMap();
     virtual void OnKeyDown(UINT8);
     virtual void OnKeyUp(UINT8);
     virtual void OnMouseMove(int, int);
@@ -97,10 +100,13 @@ private:
     ComPtr<ID3D12DescriptorHeap> m_cbvHeap;
     ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
     ComPtr<ID3D12PipelineState> m_pipelineState;
+    ComPtr<ID3D12PipelineState> m_shadowPipelineState;
     ComPtr<ID3D12GraphicsCommandList> m_commandList;
+    ComPtr<ID3D12GraphicsCommandList> m_ShadowCommandList;
     UINT m_rtvDescriptorSize;
     UINT m_cbvHeapDescriptorSize;
-
+    UINT m_dsvHeapDescriptorSize;
+       
     // App resources.
     ComPtr<ID3D12Resource> m_vertexBuffer;
     D3D12_VERTEX_BUFFER_VIEW m_vertexBufferView;
@@ -125,6 +131,8 @@ private:
 
     DirectX::XMMATRIX m_projectionMatrix = XMMatrixPerspectiveFovRH(XMConvertToRadians(m_FoV), 16.0/9, 0.1f, 100.0f);
     Camera m_camera = Camera();
+    DirectionLight directionLight = DirectionLight({ 1, 1, 1 });
+    ShadowMap* m_shadowMap;
 
     // Synchronization objects.
     UINT m_frameIndex;
