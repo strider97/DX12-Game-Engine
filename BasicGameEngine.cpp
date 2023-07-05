@@ -167,14 +167,17 @@ void BasicGameEngine::LoadPipelineAssets()
             featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
         }
 
-        CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
+        CD3DX12_DESCRIPTOR_RANGE1 ranges[3];
         CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+        CD3DX12_ROOT_PARAMETER1 shadowRootParameters[1];
 
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
         rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
 
         ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
         rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_PIXEL);
+
+        shadowRootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
 
         // Allow input layout and deny uneccessary access to certain pipeline stages.
         D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
@@ -201,10 +204,17 @@ void BasicGameEngine::LoadPipelineAssets()
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
         rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &sampler, rootSignatureFlags);
 
+        CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC shadowRootSignatureDesc;
+        shadowRootSignatureDesc.Init_1_1(_countof(shadowRootParameters), shadowRootParameters, 1, &sampler, rootSignatureFlags);
+
         ComPtr<ID3DBlob> signature;
         ComPtr<ID3DBlob> error;
         ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&rootSignatureDesc, featureData.HighestVersion, &signature, &error));
         ThrowIfFailed(m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
+        
+        ThrowIfFailed(D3DX12SerializeVersionedRootSignature(&shadowRootSignatureDesc, featureData.HighestVersion, &signature, &error));
+        ThrowIfFailed(m_device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&shadowRootSignature)));
+
     }
 
     // Create the pipeline state, which includes compiling and loading shaders.
@@ -491,7 +501,7 @@ void BasicGameEngine::OnDestroy()
 
 void BasicGameEngine::drawShadowMap() {
     ThrowIfFailed(m_ShadowCommandList->Reset(m_commandAllocator.Get(), m_shadowPipelineState.Get()));
-    m_ShadowCommandList->SetGraphicsRootSignature(m_rootSignature.Get());
+    m_ShadowCommandList->SetGraphicsRootSignature(shadowRootSignature.Get());
     ID3D12DescriptorHeap* ppHeaps[] = { m_cbvHeap.Get() };
     m_ShadowCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
@@ -502,9 +512,13 @@ void BasicGameEngine::drawShadowMap() {
 
     m_ShadowCommandList->RSSetViewports(1, &m_shadowMap->Viewport());
     m_ShadowCommandList->RSSetScissorRects(1, &m_shadowMap->ScissorRect());
-
     m_ShadowCommandList->OMSetRenderTargets(0, nullptr, false, &m_shadowMap->Dsv());
+    m_ShadowCommandList->DrawInstanced(m_vertices.size(), 1, 0, 0);
 
+    m_ShadowCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_shadowMap->Resource(),
+        D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ));
+    
+    // m_ShadowCommandList->DrawInstanced(m_vertices.size(), 1, 0, 0);
 
 }
 
