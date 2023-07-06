@@ -82,8 +82,9 @@ private:
     struct SceneConstantBuffer
     {
         DirectX::XMMATRIX PV;
+        DirectX::XMMATRIX LPV;
         XMFLOAT3 eye;
-        float padding[45]; // Padding so the constant buffer is 256-byte aligned.
+        float padding[29]; // Padding so the constant buffer is 256-byte aligned.
     };
     static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
 

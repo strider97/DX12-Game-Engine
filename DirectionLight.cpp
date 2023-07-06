@@ -1,7 +1,6 @@
 #include "stdafx.h"
 
 class DirectionLight {
-public:
 	float intensity = 0.1f;
 	DirectX::XMVECTOR direction = { 0, 1.05f, 0 };
 	DirectX::XMVECTOR color = { 1, 1, 1 };
@@ -16,6 +15,7 @@ public:
 		1000.f
 	);
 	DirectX::XMMATRIX lightViewMatrix;
+public:
 	DirectX::XMMATRIX lightViewProjectionMatrix;
 
 	DirectionLight(DirectX::XMVECTOR direction) {

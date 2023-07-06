@@ -167,14 +167,14 @@ void BasicGameEngine::LoadPipelineAssets()
             featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
         }
 
-        CD3DX12_DESCRIPTOR_RANGE1 ranges[3];
+        CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
         CD3DX12_ROOT_PARAMETER1 rootParameters[2];
         CD3DX12_ROOT_PARAMETER1 shadowRootParameters[1];
 
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
         rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
 
-        ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+        ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0);
         rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_PIXEL);
 
         shadowRootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
@@ -236,6 +236,8 @@ void BasicGameEngine::LoadPipelineAssets()
         ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"shaders.hlsl").c_str(), nullptr, nullptr, "VSMain", "vs_5_0", compileFlags, 0, &vertexShader, nullptr));
         ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"shaders.hlsl").c_str(), nullptr, nullptr, "PSSimpleAlbedo", "ps_5_0", compileFlags, 0, &pixelShader, nullptr));
 
+        ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"shaders.hlsl").c_str(), nullptr, nullptr, "ShadowVS", "vs_5_0", compileFlags, 0, &shadowVertexShader, nullptr));
+        ThrowIfFailed(D3DCompileFromFile(GetAssetFullPath(L"shaders.hlsl").c_str(), nullptr, nullptr, "ShadowPS", "ps_5_0", compileFlags, 0, &shadowPixelShader, nullptr));
 
 
         // Define the vertex input layout.
@@ -322,8 +324,8 @@ void BasicGameEngine::LoadPipelineAssets()
         D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPipelineDesc = {};
         shadowPipelineDesc.InputLayout = { inputElementDescs, _countof(inputElementDescs) };
         shadowPipelineDesc.pRootSignature = m_rootSignature.Get();
-        shadowPipelineDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
-        shadowPipelineDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
+        shadowPipelineDesc.VS = CD3DX12_SHADER_BYTECODE(shadowVertexShader.Get());
+        shadowPipelineDesc.PS = CD3DX12_SHADER_BYTECODE(shadowPixelShader.Get());
         shadowPipelineDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
         shadowPipelineDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
         shadowPipelineDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);;
@@ -390,17 +392,17 @@ void BasicGameEngine::LoadPipelineAssets()
 
     // Create shadow map
     {
-        // m_shadowMap = &ShadowMap(m_device.Get(), 1024, 1024);
-        // CD3DX12_CPU_DESCRIPTOR_HANDLE hSrv(m_cbvHeap -> GetCPUDescriptorHandleForHeapStart());
-        // hSrv.Offset(2, m_cbvHeapDescriptorSize);
+        m_shadowMap = &ShadowMap(m_device.Get(), 1024, 1024);
+        CD3DX12_CPU_DESCRIPTOR_HANDLE hSrv(m_cbvHeap -> GetCPUDescriptorHandleForHeapStart());
+        hSrv.Offset(2, m_cbvHeapDescriptorSize);
 
-        // CD3DX12_CPU_DESCRIPTOR_HANDLE hDsv(m_dsvHeap -> GetCPUDescriptorHandleForHeapStart());
-        // hDsv.Offset(1, m_dsvHeapDescriptorSize);
+        CD3DX12_CPU_DESCRIPTOR_HANDLE hDsv(m_dsvHeap -> GetCPUDescriptorHandleForHeapStart());
+        hDsv.Offset(1, m_dsvHeapDescriptorSize);
 
-        // CD3DX12_GPU_DESCRIPTOR_HANDLE hSrvGpu(m_cbvHeap -> GetGPUDescriptorHandleForHeapStart());
-        // hSrvGpu.Offset(2, m_cbvHeapDescriptorSize);
+        CD3DX12_GPU_DESCRIPTOR_HANDLE hSrvGpu(m_cbvHeap -> GetGPUDescriptorHandleForHeapStart());
+        hSrvGpu.Offset(2, m_cbvHeapDescriptorSize);
 
-        // m_shadowMap->BuildDescriptors(hSrv, hSrvGpu, hDsv);
+        m_shadowMap->BuildDescriptors(hSrv, hSrvGpu, hDsv);
     }
 
     // Create the constant buffer.
@@ -470,6 +472,7 @@ void BasicGameEngine::OnUpdate()
     const float translationSpeed = 0.005f;
     const float offsetBounds = 1.25;
     m_constantBufferData.PV = XMMatrixMultiply( *(m_camera.viewMatrix()), m_projectionMatrix );
+    m_constantBufferData.LPV = directionLight.lightViewProjectionMatrix;
     m_constantBufferData.eye = { XMVectorGetX(m_camera.eye), XMVectorGetY(m_camera.eye), XMVectorGetZ(m_camera.eye) };
     memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
 }

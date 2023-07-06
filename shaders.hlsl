@@ -12,8 +12,8 @@
 cbuffer SceneConstantBuffer : register(b0)
 {
     float4x4 PV;
-    float3 eye;
     float4x4 LPV;
+    float3 eye;
     float padding[29];
 };
 
@@ -47,6 +47,23 @@ PSInput VSMain(VSInput vInput)
     vOut.eye = eye;
 
     return vOut;
+}
+
+PSInput ShadowVS(VSInput vInput)
+{
+    PSInput vOut;
+
+    vOut.position = mul(LPV, float4(vInput.pos, 1));
+    vOut.normal = vInput.normal;
+    vOut.uv = vInput.uv;
+    vOut.worldPos = vInput.pos;
+    vOut.eye = eye;
+
+    return vOut;
+}
+
+void ShadowPS(PSInput input) {
+
 }
 
 float convert_sRGB_FromLinear(float theLinearValue) {
