@@ -84,7 +84,8 @@ private:
         DirectX::XMMATRIX PV;
         DirectX::XMMATRIX LPV;
         XMFLOAT3 eye;
-        float padding[29]; // Padding so the constant buffer is 256-byte aligned.
+        XMFLOAT3 light;
+        float padding[25]; // Padding so the constant buffer is 256-byte aligned.
     };
     static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
 
@@ -133,7 +134,7 @@ private:
 
     DirectX::XMMATRIX m_projectionMatrix = XMMatrixPerspectiveFovRH(XMConvertToRadians(m_FoV), 16.0/9, 0.1f, 100.0f);
     Camera m_camera = Camera();
-    DirectionLight directionLight = DirectionLight({ 1, 1, 1 });
+    DirectionLight directionLight = DirectionLight();
     ShadowMap* m_shadowMap;
 
     // Synchronization objects.

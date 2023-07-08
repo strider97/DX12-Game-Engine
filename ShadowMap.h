@@ -28,8 +28,8 @@ private:
 	void BuildResource();
 private:
 	ID3D12Device* md3dDevice = nullptr;
-	D3D12_VIEWPORT mViewport;
-	D3D12_RECT mScissorRect;
+	CD3DX12_VIEWPORT m_viewport;
+    CD3DX12_RECT m_scissorRect;
 	UINT mWidth = 0;
 	UINT mHeight = 0;
 	DXGI_FORMAT mFormat = DXGI_FORMAT_R24G8_TYPELESS;

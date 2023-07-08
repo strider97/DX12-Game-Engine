@@ -7,9 +7,8 @@ ShadowMap::ShadowMap(ID3D12Device *device, UINT width,
 	md3dDevice = device;
 	mWidth = width;
 	mHeight = height;
-	mViewport = {0.0f, 0.0f, (float)width,
-				 (float)height, 0.0f, 1.0f};
-	mScissorRect = {0, 0, (int)width, (int)height};
+    m_viewport = CD3DX12_VIEWPORT(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height));
+    m_scissorRect = CD3DX12_RECT(0, 0, static_cast<LONG>(width), static_cast<LONG>(height));
 	BuildResource();
 }
 void ShadowMap::BuildResource()
@@ -59,12 +58,12 @@ CD3DX12_CPU_DESCRIPTOR_HANDLE ShadowMap::Dsv() const
 
 D3D12_VIEWPORT ShadowMap::Viewport() const
 {
-	return mViewport;
+	return m_viewport;
 }
 
 D3D12_RECT ShadowMap::ScissorRect() const
 {
-	return mScissorRect;
+	return m_scissorRect;
 }
 
 void ShadowMap::BuildDescriptors(

@@ -32,7 +32,7 @@ void BasicGameEngine::OnInit()
     loadObjects();
     LoadPipelineAssets();
 
-    loadTextureFromFile(new Texture(L"./Textures/white-brick.png"));
+    loadTextureFromFile(new Texture(L"./Textures/wood.png"));
 }
 
 // Load the rendering pipeline dependencies.
@@ -174,7 +174,7 @@ void BasicGameEngine::LoadPipelineAssets()
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
         rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
 
-        ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 2, 0);
+        ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0);
         rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_PIXEL);
 
         shadowRootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
@@ -392,7 +392,7 @@ void BasicGameEngine::LoadPipelineAssets()
 
     // Create shadow map
     {
-        m_shadowMap = &ShadowMap(m_device.Get(), 1024, 1024);
+        m_shadowMap = new ShadowMap(m_device.Get(), 2048, 2048);
         CD3DX12_CPU_DESCRIPTOR_HANDLE hSrv(m_cbvHeap -> GetCPUDescriptorHandleForHeapStart());
         hSrv.Offset(2, m_cbvHeapDescriptorSize);
 
@@ -455,7 +455,7 @@ void BasicGameEngine::LoadPipelineAssets()
         // Wait for the command list to execute; we are reusing the same command 
         // list in our main loop but for now, we just want to wait for setup to 
         // complete before continuing.
-        WaitForPreviousFrame();
+        // WaitForPreviousFrame();
     }
 }
 
@@ -473,7 +473,14 @@ void BasicGameEngine::OnUpdate()
     const float offsetBounds = 1.25;
     m_constantBufferData.PV = XMMatrixMultiply( *(m_camera.viewMatrix()), m_projectionMatrix );
     m_constantBufferData.LPV = directionLight.lightViewProjectionMatrix;
-    m_constantBufferData.eye = { XMVectorGetX(m_camera.eye), XMVectorGetY(m_camera.eye), XMVectorGetZ(m_camera.eye) };
+    m_constantBufferData.eye = { 
+        XMVectorGetX(m_camera.eye), 
+        XMVectorGetY(m_camera.eye), 
+        XMVectorGetZ(m_camera.eye) };
+    m_constantBufferData.light = { 
+        XMVectorGetX(directionLight.getDirection()), 
+        XMVectorGetY(directionLight.getDirection()), 
+        XMVectorGetZ(directionLight.getDirection()) };
     memcpy(m_pCbvDataBegin, &m_constantBufferData, sizeof(m_constantBufferData));
 }
 
@@ -481,6 +488,9 @@ void BasicGameEngine::OnUpdate()
 void BasicGameEngine::OnRender()
 {
     // Record all the commands we need to render the scene into the command list.
+
+    drawShadowMap();
+
     PopulateCommandList();
 
     // Execute the command list.
@@ -503,26 +513,39 @@ void BasicGameEngine::OnDestroy()
 }
 
 void BasicGameEngine::drawShadowMap() {
+    ThrowIfFailed(m_commandAllocator->Reset());
     ThrowIfFailed(m_ShadowCommandList->Reset(m_commandAllocator.Get(), m_shadowPipelineState.Get()));
+
     m_ShadowCommandList->SetGraphicsRootSignature(shadowRootSignature.Get());
     ID3D12DescriptorHeap* ppHeaps[] = { m_cbvHeap.Get() };
     m_ShadowCommandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     CD3DX12_GPU_DESCRIPTOR_HANDLE cbv_srv_handle(m_cbvHeap->GetGPUDescriptorHandleForHeapStart());
     m_ShadowCommandList->SetGraphicsRootDescriptorTable(0, cbv_srv_handle);
-    // cbv_srv_handle.Offset(1, m_cbvHeapDescriptorSize);
-    // m_ShadowCommandList->SetGraphicsRootDescriptorTable(1, cbv_srv_handle);
 
+    m_ShadowCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_shadowMap->Resource(),
+        D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE));
+
+    m_ShadowCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    m_ShadowCommandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
     m_ShadowCommandList->RSSetViewports(1, &m_shadowMap->Viewport());
     m_ShadowCommandList->RSSetScissorRects(1, &m_shadowMap->ScissorRect());
+    m_ShadowCommandList->ClearDepthStencilView(m_shadowMap->Dsv(), 
+        D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
     m_ShadowCommandList->OMSetRenderTargets(0, nullptr, false, &m_shadowMap->Dsv());
+
     m_ShadowCommandList->DrawInstanced(m_vertices.size(), 1, 0, 0);
 
     m_ShadowCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_shadowMap->Resource(),
         D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ));
-    
-    // m_ShadowCommandList->DrawInstanced(m_vertices.size(), 1, 0, 0);
 
+    m_ShadowCommandList->Close();
+
+    // Execute the command list.
+    ID3D12CommandList* ppCommandLists[] = { m_ShadowCommandList.Get() };
+    m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+    
+    WaitForPreviousFrame();
 }
 
 // Fill the command list with all the render commands and dependent state.
