@@ -64,6 +64,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
     {
         LoadLibrary(GetLatestWinPixGpuCapturerPath().c_str());
     }
-    BasicGameEngine sample(1280, 720, L"Basic Game Engine");
+    BasicGameEngine sample(1366, 768, L"Basic Game Engine");
     return Win32Application::Run(&sample, hInstance, nCmdShow);
 }

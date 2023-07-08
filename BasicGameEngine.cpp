@@ -32,7 +32,7 @@ void BasicGameEngine::OnInit()
     loadObjects();
     LoadPipelineAssets();
 
-    loadTextureFromFile(new Texture(L"./Textures/wood.png"));
+    loadTextureFromFile(new Texture(L"./Textures/white-brick.png"));
 }
 
 // Load the rendering pipeline dependencies.
@@ -172,7 +172,7 @@ void BasicGameEngine::LoadPipelineAssets()
         CD3DX12_ROOT_PARAMETER1 shadowRootParameters[1];
 
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
-        rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
+        rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
 
         ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0);
         rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_PIXEL);
@@ -281,8 +281,8 @@ void BasicGameEngine::LoadPipelineAssets()
         depthStencilResourceDesc.Dimension =
             D3D12_RESOURCE_DIMENSION_TEXTURE2D;
         depthStencilResourceDesc.Alignment = 0;
-        depthStencilResourceDesc.Width = 1280;
-        depthStencilResourceDesc.Height = 720;
+        depthStencilResourceDesc.Width = 1366;
+        depthStencilResourceDesc.Height = 768;
         depthStencilResourceDesc.DepthOrArraySize = 1;
         depthStencilResourceDesc.MipLevels = 1;
         depthStencilResourceDesc.Format = DXGI_FORMAT_D32_FLOAT;

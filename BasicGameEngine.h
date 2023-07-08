@@ -84,6 +84,7 @@ private:
         DirectX::XMMATRIX PV;
         DirectX::XMMATRIX LPV;
         XMFLOAT3 eye;
+        float pad;
         XMFLOAT3 light;
         float padding[25]; // Padding so the constant buffer is 256-byte aligned.
     };

@@ -15,7 +15,6 @@ cbuffer SceneConstantBuffer : register(b0)
     float4x4 LPV;
     float3 eye;
     float3 lightDir;
-    float padding[25];
 };
 
 struct VSInput
@@ -49,9 +48,9 @@ PSInput VSMain(VSInput vInput)
     vOut.worldPos = vInput.pos;
     vOut.eye = eye;
 
-    float depthOffset = 0.01f;
-    float3 depthDir = normalize(vInput.normal * 0.6 + lightDir * 0.4);
-    vOut.fragPosLightSpace = mul(LPV, float4(vInput.pos + depthDir * depthOffset, 1));
+    float depthOffset = 0.02f;
+    float3 depthDir = normalize(vInput.normal * 0.8 + lightDir * 0.2);
+    vOut.fragPosLightSpace = mul(LPV, float4(vInput.pos + depthOffset * depthDir, 1));
 
     return vOut;
 }
@@ -134,22 +133,19 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float3 color = float3(255, 212, 128)/255;
     bool isMetal = false;
     float lightIntensity = 1.2f;
-    // float3 texColor = sRGB_FromLinear3(albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, 1 - vsOut.uv.y)).rgb);
+    float3 texColor = sRGB_FromLinear3(albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, 1 - vsOut.uv.y)).rgb);
 
-    // return float4(
-    //     float3(30 * linearizeDepth(vsOut.fragPosLightSpace.z/vsOut.fragPosLightSpace.w), 0, 0), 
-    //     1.0f);
-    return float4(float3(getShadowMultiplier(vsOut.fragPosLightSpace), 0, 0), 1);
+    // return float4(float3(getShadowMultiplier(vsOut.fragPosLightSpace), 0, 0), 1);
 
     float3 l = lightDir;
-    float3 v = normalize(vsOut.eye - vsOut.worldPos);
-    float3 h = normalize(l + v);
+    // float3 v = normalize(vsOut.eye - vsOut.worldPos);
+    // float3 h = normalize(l + v);
 
     float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
-    float3 diff = kd * shadowValue * saturate(dot(l, vsOut.normal));
+    float3 diff = kd * saturate(dot(l, vsOut.normal)) * texColor;
+    float3 ambient = ka * texColor;
 
-    float3 radiance = lightIntensity * color * (diff + ka);
-    radiance *= lightIntensity;
+    float3 radiance = lightIntensity * shadowValue * diff + ambient;
 
     return float4(radiance, 1);
 }
