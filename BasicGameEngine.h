@@ -151,6 +151,7 @@ private:
     void updateTime();
     void updateCamera();
     void loadObjects();
+    void loadGltfModel();
     void createTexture2D(int width, int height, ComPtr<ID3D12Resource> texture);
     void loadTextureFromFile(Texture* texture);
     void loadSrvHeapResources(Texture* texture);
