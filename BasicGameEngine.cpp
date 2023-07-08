@@ -392,7 +392,7 @@ void BasicGameEngine::LoadPipelineAssets()
 
     // Create shadow map
     {
-        m_shadowMap = new ShadowMap(m_device.Get(), 2048, 2048);
+        m_shadowMap = new ShadowMap(m_device.Get(), 1024, 1024);
         CD3DX12_CPU_DESCRIPTOR_HANDLE hSrv(m_cbvHeap -> GetCPUDescriptorHandleForHeapStart());
         hSrv.Offset(2, m_cbvHeapDescriptorSize);
 
@@ -461,7 +461,7 @@ void BasicGameEngine::LoadPipelineAssets()
 
 void BasicGameEngine::loadObjects()  {
 //    ObjLoader::loadObj("./Models/teapot.obj", m_vertices);
-    ObjLoader::loadObj("./Models/sponza.obj", m_vertices);
+    ObjLoader::loadObj("./Models/shapes.obj", m_vertices);
 }
 
 // Update frame-based values.
