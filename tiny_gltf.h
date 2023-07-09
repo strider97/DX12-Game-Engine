@@ -6645,10 +6645,6 @@ namespace tinygltf {
         // Use 64bit uint to avoid integer overflow.
         uint64_t header_and_json_size = 20ull + uint64_t(chunk0_length);
 
-        if (header_and_json_size > std::numeric_limits<uint32_t>::max()) {
-            // Do not allow 4GB or more GLB data.
-            (*err) = "Invalid glTF binary. GLB data exceeds 4GB.";
-        }
 
         if ((header_and_json_size > uint64_t(size)) || (chunk0_length < 1) || (length > size) ||
             (header_and_json_size > uint64_t(length)) ||

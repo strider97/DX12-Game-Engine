@@ -113,9 +113,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BasicGameEngine.h" />
+    <ClInclude Include="GltfLoader.h" />
+    <ClInclude Include="json.hpp" />
     <ClInclude Include="ObjLoader.h" />
     <ClInclude Include="ShadowMap.h" />
-    <ClInclude Include="tiny_gltf_loader.h" />
+    <ClInclude Include="stb_image.h" />
+    <ClInclude Include="stb_image_write.h" />
+    <ClInclude Include="tiny_gltf.h" />
     <ClInclude Include="tiny_obj_loader.h" />
     <ClInclude Include="WICTextureLoader12.h" />
     <ClInclude Include="Win32Application.h" />
