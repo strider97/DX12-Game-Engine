@@ -31,6 +31,7 @@ void BasicGameEngine::OnInit()
     LoadPipeline();
     loadObjects();
     LoadPipelineAssets();
+    loadModels();
 
     loadTextureFromFile(new Texture(L"./Textures/white-brick.png"));
 }
@@ -460,11 +461,20 @@ void BasicGameEngine::LoadPipelineAssets()
 }
 
 void BasicGameEngine::loadObjects()  {
-//    ObjLoader::loadObj("./Models/teapot.obj", m_vertices);
-    //tinygltf::Model model;
-    GLTF_Loader::loadGltf("./Models/shapes.glb", model);
-    // model.buffers.at(0).data
     ObjLoader::loadObj("./Models/shapes.obj", m_vertices);
+}
+
+void BasicGameEngine::loadModels() {
+    bufferManager = new BufferManager(m_device, m_commandList);
+    GLTF_Loader::loadGltf("./Models/shapes.glb", model);
+    bufferManager->loadBuffers(model.buffers);
+
+    // ThrowIfFailed(m_commandList->Close());
+    // ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+    // m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+    // WaitForPreviousFrame();
+
+    bufferManager->loadBufferViews(model.bufferViews, model.accessors, bufferViewHeap);
 }
 
 // Update frame-based values.

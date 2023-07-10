@@ -18,6 +18,7 @@
 #include "ShadowMap.h"
 #include "GLTF_Loader.h"
 #include "tiny_gltf.h"
+#include "BufferManager.h"
 
 using namespace DirectX;
 
@@ -108,6 +109,7 @@ private:
     ComPtr<ID3D12PipelineState> m_shadowPipelineState;
     ComPtr<ID3D12GraphicsCommandList> m_commandList;
     ComPtr<ID3D12GraphicsCommandList> m_ShadowCommandList;
+    ComPtr<ID3D12DescriptorHeap> bufferViewHeap;
     UINT m_rtvDescriptorSize;
     UINT m_cbvHeapDescriptorSize;
     UINT m_dsvHeapDescriptorSize;
@@ -139,6 +141,7 @@ private:
     DirectionLight directionLight = DirectionLight();
     ShadowMap* m_shadowMap;
     tinygltf::Model model;
+    BufferManager* bufferManager;
 
     // Synchronization objects.
     UINT m_frameIndex;
@@ -153,6 +156,7 @@ private:
     void updateTime();
     void updateCamera();
     void loadObjects();
+    void loadModels();
     void loadGltfModel();
     void createTexture2D(int width, int height, ComPtr<ID3D12Resource> texture);
     void loadTextureFromFile(Texture* texture);

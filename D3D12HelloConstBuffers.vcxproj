@@ -113,6 +113,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BasicGameEngine.h" />
+    <ClInclude Include="BufferManager.h" />
     <ClInclude Include="GLTF_Loader.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="ObjLoader.h" />
@@ -131,6 +132,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="BasicGameEngine.cpp" />
+    <ClCompile Include="BufferManager.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DirectionLight.cpp" />
     <ClCompile Include="GLTF_Loader.cpp" />
