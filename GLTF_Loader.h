@@ -3,32 +3,31 @@
 #include "tiny_gltf.h"
 class GLTF_Loader
 {
-    void DumpTextureInfo(const tinygltf::TextureInfo& texinfo, const int indent);
-    void DumpNormalTextureInfo(const tinygltf::NormalTextureInfo& texinfo, const int indent);
-    void DumpOcclusionTextureInfo(const tinygltf::OcclusionTextureInfo& texinfo, const int indent);
-    void DumpPbrMetallicRoughness(const tinygltf::PbrMetallicRoughness& pbr, const int indent);
-    void Dump(const tinygltf::Model &model);
-    void loadGltf(std::string input_filename, tinygltf::Model& model);
-    std::string GetFilePathExtension(const std::string& FileName);
-    std::string PrintMode(int mode);
-    std::string PrintTarget(int target);
-    std::string PrintType(int ty);
-    std::string PrintComponentType(int ty);
-    std::string PrintWrapMode(int mode);
-    std::string PrintFilterMode(int mode);
-    std::string PrintIntArray(const std::vector<int> &arr);
-    std::string PrintFloatArray(const std::vector<double> &arr);
-    std::string Indent(const int indent);
-    std::string PrintParameterValue(const tinygltf::Parameter &param);
-    std::string _PrintValue(const std::string &name,
+    static void DumpTextureInfo(const tinygltf::TextureInfo& texinfo, const int indent);
+    static void DumpNormalTextureInfo(const tinygltf::NormalTextureInfo& texinfo, const int indent);
+    static void DumpOcclusionTextureInfo(const tinygltf::OcclusionTextureInfo& texinfo, const int indent);
+    static void DumpPbrMetallicRoughness(const tinygltf::PbrMetallicRoughness& pbr, const int indent);
+    static void Dump(const tinygltf::Model &model);
+    static std::string GetFilePathExtension(const std::string& FileName);
+    static std::string PrintMode(int mode);
+    static std::string PrintTarget(int target);
+    static std::string PrintType(int ty);
+    static std::string PrintComponentType(int ty);
+    static std::string PrintWrapMode(int mode);
+    static std::string PrintFilterMode(int mode);
+    static std::string PrintIntArray(const std::vector<int> &arr);
+    static std::string PrintFloatArray(const std::vector<double> &arr);
+    static std::string Indent(const int indent);
+    static std::string PrintParameterValue(const tinygltf::Parameter &param);
+    static std::string _PrintValue(const std::string &name,
                                 const tinygltf::Value &value, const int indent,
                                 const bool tag = true);
-    void DumpNode(const tinygltf::Node &node, int indent);
+    static void DumpNode(const tinygltf::Node &node, int indent);
+    static void DumpStringIntMap(const std::map<std::string, int>& m, int indent);
+    static void DumpExtensions(const tinygltf::ExtensionMap& extension, const int indent);
+    static void DumpPrimitive(const tinygltf::Primitive& primitive, int indent);
 
-    void DumpStringIntMap(const std::map<std::string, int>& m, int indent);
-
-    void DumpExtensions(const tinygltf::ExtensionMap& extension, const int indent);
-
-    void DumpPrimitive(const tinygltf::Primitive& primitive, int indent);
+public:
+    static void loadGltf(std::string input_filename, tinygltf::Model& model);
 };
 

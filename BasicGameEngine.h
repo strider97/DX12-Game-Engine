@@ -138,6 +138,7 @@ private:
     Camera m_camera = Camera();
     DirectionLight directionLight = DirectionLight();
     ShadowMap* m_shadowMap;
+    tinygltf::Model model;
 
     // Synchronization objects.
     UINT m_frameIndex;

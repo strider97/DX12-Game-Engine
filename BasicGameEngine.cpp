@@ -462,7 +462,7 @@ void BasicGameEngine::LoadPipelineAssets()
 void BasicGameEngine::loadObjects()  {
 //    ObjLoader::loadObj("./Models/teapot.obj", m_vertices);
     //tinygltf::Model model;
-    // GLTFLoader::loadGltf("./Models/shapes.glb", model);
+    GLTF_Loader::loadGltf("./Models/shapes.glb", model);
     // model.buffers.at(0).data
     ObjLoader::loadObj("./Models/shapes.obj", m_vertices);
 }
