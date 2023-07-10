@@ -1,19 +1,21 @@
-#pragma once
 
+
+#include "stdafx.h"
+#include <iostream>
+#include <sstream>
 #define TINYGLTF_IMPLEMENTATION
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include<iostream>
-#include "tiny_gltf.h"
+#include "GLTF_Loader.h"
 
-class GLTFLoader {
-	static std::string GetFilePathExtension(const std::string &FileName) {
-		if (FileName.find_last_of(".") != std::string::npos)
-			return FileName.substr(FileName.find_last_of(".") + 1);
-		return "";
-	}
 
-static std::string PrintMode(int mode) {
+std::string GLTF_Loader::GetFilePathExtension(const std::string &FileName) {
+	if (FileName.find_last_of(".") != std::string::npos)
+		return FileName.substr(FileName.find_last_of(".") + 1);
+	return "";
+}
+
+std::string GLTF_Loader::PrintMode(int mode) {
   if (mode == TINYGLTF_MODE_POINTS) {
     return "POINTS";
   } else if (mode == TINYGLTF_MODE_LINE) {
@@ -30,7 +32,7 @@ static std::string PrintMode(int mode) {
   return "**UNKNOWN**";
 }
 
-static std::string PrintTarget(int target) {
+std::string GLTF_Loader::PrintTarget(int target) {
   if (target == 34962) {
     return "GL_ARRAY_BUFFER";
   } else if (target == 34963) {
@@ -40,7 +42,7 @@ static std::string PrintTarget(int target) {
   }
 }
 
-static std::string PrintType(int ty) {
+std::string GLTF_Loader::PrintType(int ty) {
   if (ty == TINYGLTF_TYPE_SCALAR) {
     return "SCALAR";
   } else if (ty == TINYGLTF_TYPE_VECTOR) {
@@ -63,7 +65,7 @@ static std::string PrintType(int ty) {
   return "**UNKNOWN**";
 }
 
-static std::string PrintComponentType(int ty) {
+std::string GLTF_Loader::PrintComponentType(int ty) {
   if (ty == TINYGLTF_COMPONENT_TYPE_BYTE) {
     return "BYTE";
   } else if (ty == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
@@ -86,7 +88,7 @@ static std::string PrintComponentType(int ty) {
 }
 
 #if 0
-static std::string PrintParameterType(int ty) {
+std::string GLTF_Loader::PrintParameterType(int ty) {
   if (ty == TINYGLTF_PARAMETER_TYPE_BYTE) {
     return "BYTE";
   } else if (ty == TINYGLTF_PARAMETER_TYPE_UNSIGNED_BYTE) {
@@ -135,7 +137,7 @@ static std::string PrintParameterType(int ty) {
 }
 #endif
 
-static std::string PrintWrapMode(int mode) {
+std::string GLTF_Loader::PrintWrapMode(int mode) {
   if (mode == TINYGLTF_TEXTURE_WRAP_REPEAT) {
     return "REPEAT";
   } else if (mode == TINYGLTF_TEXTURE_WRAP_CLAMP_TO_EDGE) {
@@ -147,7 +149,7 @@ static std::string PrintWrapMode(int mode) {
   return "**UNKNOWN**";
 }
 
-static std::string PrintFilterMode(int mode) {
+std::string GLTF_Loader::PrintFilterMode(int mode) {
   if (mode == TINYGLTF_TEXTURE_FILTER_NEAREST) {
     return "NEAREST";
   } else if (mode == TINYGLTF_TEXTURE_FILTER_LINEAR) {
@@ -164,7 +166,7 @@ static std::string PrintFilterMode(int mode) {
   return "**UNKNOWN**";
 }
 
-static std::string PrintIntArray(const std::vector<int> &arr) {
+std::string GLTF_Loader::PrintIntArray(const std::vector<int> &arr) {
   if (arr.size() == 0) {
     return "";
   }
@@ -182,7 +184,7 @@ static std::string PrintIntArray(const std::vector<int> &arr) {
   return ss.str();
 }
 
-static std::string PrintFloatArray(const std::vector<double> &arr) {
+std::string GLTF_Loader::PrintFloatArray(const std::vector<double> &arr) {
   if (arr.size() == 0) {
     return "";
   }
@@ -200,7 +202,7 @@ static std::string PrintFloatArray(const std::vector<double> &arr) {
   return ss.str();
 }
 
-static std::string Indent(const int indent) {
+std::string GLTF_Loader::Indent(const int indent) {
   std::string s;
   for (int i = 0; i < indent; i++) {
     s += "  ";
@@ -209,7 +211,7 @@ static std::string Indent(const int indent) {
   return s;
 }
 
-static std::string PrintParameterValue(const tinygltf::Parameter &param) {
+std::string GLTF_Loader::PrintParameterValue(const tinygltf::Parameter &param) {
   if (!param.number_array.empty()) {
     return PrintFloatArray(param.number_array);
   } else {
@@ -218,7 +220,7 @@ static std::string PrintParameterValue(const tinygltf::Parameter &param) {
 }
 
 #if 0
-static std::string PrintParameterMap(const tinygltf::ParameterMap &pmap) {
+std::string GLTF_Loader::PrintParameterMap(const tinygltf::ParameterMap &pmap) {
   std::stringstream ss;
 
   ss << pmap.size() << std::endl;
@@ -230,9 +232,9 @@ static std::string PrintParameterMap(const tinygltf::ParameterMap &pmap) {
 }
 #endif
 
-static std::string PrintValue(const std::string &name,
+std::string GLTF_Loader::_PrintValue(const std::string &name,
                               const tinygltf::Value &value, const int indent,
-                              const bool tag = true) {
+                              const bool tag) {
   std::stringstream ss;
 
   if (value.IsObject()) {
@@ -240,7 +242,7 @@ static std::string PrintValue(const std::string &name,
     tinygltf::Value::Object::const_iterator it(o.begin());
     tinygltf::Value::Object::const_iterator itEnd(o.end());
     for (; it != itEnd; it++) {
-      ss << PrintValue(it->first, it->second, indent + 1) << std::endl;
+      ss << _PrintValue(it->first, it->second, indent + 1) << std::endl;
     }
   } else if (value.IsString()) {
     if (tag) {
@@ -270,7 +272,7 @@ static std::string PrintValue(const std::string &name,
     // TODO(syoyo): Better pretty printing of array item
     ss << Indent(indent) << name << " [ \n";
     for (size_t i = 0; i < value.Size(); i++) {
-      ss << PrintValue("", value.Get(int(i)), indent + 1, /* tag */ false);
+      ss << _PrintValue("", value.Get(int(i)), indent + 1, /* tag */ false);
       if (i != (value.ArrayLen() - 1)) {
         ss << ", \n";
       }
@@ -283,7 +285,7 @@ static std::string PrintValue(const std::string &name,
   return ss.str();
 }
 
-static void DumpNode(const tinygltf::Node &node, int indent) {
+void GLTF_Loader::DumpNode(const tinygltf::Node &node, int indent) {
   std::cout << Indent(indent) << "name        : " << node.name << std::endl;
   std::cout << Indent(indent) << "camera      : " << node.camera << std::endl;
   std::cout << Indent(indent) << "mesh        : " << node.mesh << std::endl;
@@ -311,7 +313,7 @@ static void DumpNode(const tinygltf::Node &node, int indent) {
             << "children    : " << PrintIntArray(node.children) << std::endl;
 }
 
-static void DumpStringIntMap(const std::map<std::string, int> &m, int indent) {
+void GLTF_Loader::DumpStringIntMap(const std::map<std::string, int> &m, int indent) {
   std::map<std::string, int>::const_iterator it(m.begin());
   std::map<std::string, int>::const_iterator itEnd(m.end());
   for (; it != itEnd; it++) {
@@ -319,16 +321,16 @@ static void DumpStringIntMap(const std::map<std::string, int> &m, int indent) {
   }
 }
 
-static void DumpExtensions(const tinygltf::ExtensionMap &extension,
+void GLTF_Loader::DumpExtensions(const tinygltf::ExtensionMap &extension,
                            const int indent) {
   // TODO(syoyo): pritty print Value
   for (auto &e : extension) {
     std::cout << Indent(indent) << e.first << std::endl;
-    std::cout << PrintValue("extensions", e.second, indent + 1) << std::endl;
+    std::cout << _PrintValue("extensions", e.second, indent + 1) << std::endl;
   }
 }
 
-static void DumpPrimitive(const tinygltf::Primitive &primitive, int indent) {
+void GLTF_Loader::DumpPrimitive(const tinygltf::Primitive &primitive, int indent) {
   std::cout << Indent(indent) << "material : " << primitive.material
             << std::endl;
   std::cout << Indent(indent) << "indices : " << primitive.indices << std::endl;
@@ -341,7 +343,7 @@ static void DumpPrimitive(const tinygltf::Primitive &primitive, int indent) {
 
   DumpExtensions(primitive.extensions, indent);
   std::cout << Indent(indent) << "extras :" << std::endl
-            << PrintValue("extras", primitive.extras, indent + 1) << std::endl;
+            << _PrintValue("extras", primitive.extras, indent + 1) << std::endl;
 
   if (!primitive.extensions_json_string.empty()) {
     std::cout << Indent(indent + 1) << "extensions(JSON string) = "
@@ -356,13 +358,13 @@ static void DumpPrimitive(const tinygltf::Primitive &primitive, int indent) {
 }
 
 
-static void DumpTextureInfo(const tinygltf::TextureInfo &texinfo,
+void GLTF_Loader::DumpTextureInfo(const tinygltf::TextureInfo &texinfo,
                             const int indent) {
   std::cout << Indent(indent) << "index     : " << texinfo.index << "\n";
   std::cout << Indent(indent) << "texCoord  : TEXCOORD_" << texinfo.texCoord
             << "\n";
   DumpExtensions(texinfo.extensions, indent + 1);
-  std::cout << PrintValue("extras", texinfo.extras, indent + 1) << "\n";
+  std::cout << _PrintValue("extras", texinfo.extras, indent + 1) << "\n";
 
   if (!texinfo.extensions_json_string.empty()) {
     std::cout << Indent(indent)
@@ -376,27 +378,27 @@ static void DumpTextureInfo(const tinygltf::TextureInfo &texinfo,
   }
 }
 
-static void DumpNormalTextureInfo(const tinygltf::NormalTextureInfo &texinfo,
+void GLTF_Loader::DumpNormalTextureInfo(const tinygltf::NormalTextureInfo &texinfo,
                                   const int indent) {
   std::cout << Indent(indent) << "index     : " << texinfo.index << "\n";
   std::cout << Indent(indent) << "texCoord  : TEXCOORD_" << texinfo.texCoord
             << "\n";
   std::cout << Indent(indent) << "scale     : " << texinfo.scale << "\n";
   DumpExtensions(texinfo.extensions, indent + 1);
-  std::cout << PrintValue("extras", texinfo.extras, indent + 1) << "\n";
+  std::cout << _PrintValue("extras", texinfo.extras, indent + 1) << "\n";
 }
 
-static void DumpOcclusionTextureInfo(
+void GLTF_Loader::DumpOcclusionTextureInfo(
     const tinygltf::OcclusionTextureInfo &texinfo, const int indent) {
   std::cout << Indent(indent) << "index     : " << texinfo.index << "\n";
   std::cout << Indent(indent) << "texCoord  : TEXCOORD_" << texinfo.texCoord
             << "\n";
   std::cout << Indent(indent) << "strength  : " << texinfo.strength << "\n";
   DumpExtensions(texinfo.extensions, indent + 1);
-  std::cout << PrintValue("extras", texinfo.extras, indent + 1) << "\n";
+  std::cout << _PrintValue("extras", texinfo.extras, indent + 1) << "\n";
 }
 
-static void DumpPbrMetallicRoughness(const tinygltf::PbrMetallicRoughness &pbr,
+void GLTF_Loader::DumpPbrMetallicRoughness(const tinygltf::PbrMetallicRoughness &pbr,
                                      const int indent) {
   std::cout << Indent(indent)
             << "baseColorFactor   : " << PrintFloatArray(pbr.baseColorFactor)
@@ -412,10 +414,10 @@ static void DumpPbrMetallicRoughness(const tinygltf::PbrMetallicRoughness &pbr,
   std::cout << Indent(indent) << "metallicRoughnessTexture  :\n";
   DumpTextureInfo(pbr.metallicRoughnessTexture, indent + 1);
   DumpExtensions(pbr.extensions, indent + 1);
-  std::cout << PrintValue("extras", pbr.extras, indent + 1) << "\n";
+  std::cout << _PrintValue("extras", pbr.extras, indent + 1) << "\n";
 }
 
-static void Dump(const tinygltf::Model &model) {
+void GLTF_Loader::Dump(const tinygltf::Model &model) {
   std::cout << "=== Dump glTF ===" << std::endl;
   std::cout << "asset.copyright          : " << model.asset.copyright
             << std::endl;
@@ -570,7 +572,7 @@ static void Dump(const tinygltf::Model &model) {
       std::cout << Indent(1) << "-------------------------------------\n";
 
       DumpExtensions(bufferView.extensions, 1);
-      std::cout << PrintValue("extras", bufferView.extras, 2) << std::endl;
+      std::cout << _PrintValue("extras", bufferView.extras, 2) << std::endl;
 
       if (!bufferView.extensions_json_string.empty()) {
         std::cout << Indent(2) << "extensions(JSON string) = "
@@ -595,7 +597,7 @@ static void Dump(const tinygltf::Model &model) {
       std::cout << Indent(1) << "-------------------------------------\n";
 
       DumpExtensions(buffer.extensions, 1);
-      std::cout << PrintValue("extras", buffer.extras, 2) << std::endl;
+      std::cout << _PrintValue("extras", buffer.extras, 2) << std::endl;
 
       if (!buffer.extensions_json_string.empty()) {
         std::cout << Indent(2) << "extensions(JSON string) = "
@@ -652,7 +654,7 @@ static void Dump(const tinygltf::Model &model) {
       std::cout << Indent(1) << "-------------------------------------\n";
 
       DumpExtensions(material.extensions, 1);
-      std::cout << PrintValue("extras", material.extras, 2) << std::endl;
+      std::cout << _PrintValue("extras", material.extras, 2) << std::endl;
 
       if (!material.extensions_json_string.empty()) {
         std::cout << Indent(2) << "extensions(JSON string) = "
@@ -687,7 +689,7 @@ static void Dump(const tinygltf::Model &model) {
       std::cout << Indent(2) << "height    : " << image.height << std::endl;
       std::cout << Indent(2) << "component : " << image.component << std::endl;
       DumpExtensions(image.extensions, 1);
-      std::cout << PrintValue("extras", image.extras, 2) << std::endl;
+      std::cout << _PrintValue("extras", image.extras, 2) << std::endl;
 
       if (!image.extensions_json_string.empty()) {
         std::cout << Indent(2) << "extensions(JSON string) = "
@@ -711,7 +713,7 @@ static void Dump(const tinygltf::Model &model) {
       std::cout << Indent(1) << "source         : " << texture.source
                 << std::endl;
       DumpExtensions(texture.extensions, 1);
-      std::cout << PrintValue("extras", texture.extras, 2) << std::endl;
+      std::cout << _PrintValue("extras", texture.extras, 2) << std::endl;
 
       if (!texture.extensions_json_string.empty()) {
         std::cout << Indent(2) << "extensions(JSON string) = "
@@ -746,7 +748,7 @@ static void Dump(const tinygltf::Model &model) {
                 << std::endl;
 
       DumpExtensions(sampler.extensions, 1);
-      std::cout << PrintValue("extras", sampler.extras, 2) << std::endl;
+      std::cout << _PrintValue("extras", sampler.extras, 2) << std::endl;
 
       if (!sampler.extensions_json_string.empty()) {
         std::cout << Indent(2) << "extensions(JSON string) = "
@@ -794,7 +796,7 @@ static void Dump(const tinygltf::Model &model) {
       std::cout << Indent(1) << "-------------------------------------\n";
 
       DumpExtensions(camera.extensions, 1);
-      std::cout << PrintValue("extras", camera.extras, 2) << std::endl;
+      std::cout << _PrintValue("extras", camera.extras, 2) << std::endl;
 
       if (!camera.extensions_json_string.empty()) {
         std::cout << Indent(2) << "extensions(JSON string) = "
@@ -825,7 +827,7 @@ static void Dump(const tinygltf::Model &model) {
       std::cout << Indent(1) << "-------------------------------------\n";
 
       DumpExtensions(skin.extensions, 1);
-      std::cout << PrintValue("extras", skin.extras, 2) << std::endl;
+      std::cout << _PrintValue("extras", skin.extras, 2) << std::endl;
 
       if (!skin.extensions_json_string.empty()) {
         std::cout << Indent(2)
@@ -848,45 +850,43 @@ static void Dump(const tinygltf::Model &model) {
     DumpExtensions(model.extensions, 1);
   }
 }
-public:
-	GLTFLoader() {}
 
-	static void loadGltf(std::string input_filename, tinygltf::Model &model) {
-		bool store_original_json_for_extras_and_extensions = false;
+void GLTF_Loader::loadGltf(std::string input_filename, tinygltf::Model& model) {
+    bool store_original_json_for_extras_and_extensions = false;
 
-		tinygltf::TinyGLTF gltf_ctx;
-		std::string err;
-		std::string warn;
-		std::string ext = GetFilePathExtension(input_filename);
+    tinygltf::TinyGLTF gltf_ctx;
+    std::string err;
+    std::string warn;
+    std::string ext = GetFilePathExtension(input_filename);
 
-		gltf_ctx.SetStoreOriginalJSONForExtrasAndExtensions(
-				store_original_json_for_extras_and_extensions);
+    gltf_ctx.SetStoreOriginalJSONForExtrasAndExtensions(
+        store_original_json_for_extras_and_extensions);
 
-		bool ret = false;
-		if (ext.compare("glb") == 0) {
-		std::cout << "Reading binary glTF" << std::endl;
-		// assume binary glTF.
-		ret = gltf_ctx.LoadBinaryFromFile(&model, &err, &warn,
-																				input_filename.c_str());
-		} else {
-		std::cout << "Reading ASCII glTF" << std::endl;
-		// assume ascii glTF.
-		ret = gltf_ctx.LoadASCIIFromFile(&model, &err, &warn, input_filename.c_str());
-		}
+    bool ret = false;
+    if (ext.compare("glb") == 0) {
+        std::cout << "Reading binary glTF" << std::endl;
+        // assume binary glTF.
+        ret = gltf_ctx.LoadBinaryFromFile(&model, &err, &warn,
+            input_filename.c_str());
+    }
+    else {
+        std::cout << "Reading ASCII glTF" << std::endl;
+        // assume ascii glTF.
+        ret = gltf_ctx.LoadASCIIFromFile(&model, &err, &warn, input_filename.c_str());
+    }
 
-		if (!warn.empty()) {
-			printf("Warn: %s\n", warn.c_str());
-		}
+    if (!warn.empty()) {
+        printf("Warn: %s\n", warn.c_str());
+    }
 
-		if (!err.empty()) {
-			printf("Err: %s\n", err.c_str());
-		}
+    if (!err.empty()) {
+        printf("Err: %s\n", err.c_str());
+    }
 
-		if (!ret) {
-			printf("Failed to parse glTF\n");
-			return;
-		}
+    if (!ret) {
+        printf("Failed to parse glTF\n");
+        return;
+    }
 
-		Dump(model);
-	}
-};
+    Dump(model);
+}

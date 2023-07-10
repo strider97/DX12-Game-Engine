@@ -10,13 +10,14 @@
 //*********************************************************
 
 #pragma once
-
 #include "DXSample.h"
 #include <chrono>
 #include <ctime>  
 #include "Camera.cpp"
 #include "DirectionLight.cpp"
 #include "ShadowMap.h"
+#include "GLTF_Loader.h"
+#include "tiny_gltf.h"
 
 using namespace DirectX;
 

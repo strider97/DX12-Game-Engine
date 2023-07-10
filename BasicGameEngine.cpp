@@ -8,13 +8,12 @@
 // PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.
 //
 //*********************************************************
-
+#pragma once
 #include "stdafx.h"
 #include "BasicGameEngine.h"
 #include <string.h>
 #include "ObjLoader.h"
 #include "WICTextureLoader12.h"
-#include "GltfLoader.h"
 
 BasicGameEngine::BasicGameEngine(UINT width, UINT height, std::wstring name) :
     DXSample(width, height, name),
@@ -462,8 +461,8 @@ void BasicGameEngine::LoadPipelineAssets()
 
 void BasicGameEngine::loadObjects()  {
 //    ObjLoader::loadObj("./Models/teapot.obj", m_vertices);
-    tinygltf::Model model;
-    GLTFLoader::loadGltf("./Models/shapes.glb", model);
+    //tinygltf::Model model;
+    // GLTFLoader::loadGltf("./Models/shapes.glb", model);
     // model.buffers.at(0).data
     ObjLoader::loadObj("./Models/shapes.obj", m_vertices);
 }

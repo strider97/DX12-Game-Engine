@@ -113,7 +113,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BasicGameEngine.h" />
-    <ClInclude Include="GltfLoader.h" />
+    <ClInclude Include="GLTF_Loader.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="ObjLoader.h" />
     <ClInclude Include="ShadowMap.h" />
@@ -133,6 +133,7 @@
     <ClCompile Include="BasicGameEngine.cpp" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="DirectionLight.cpp" />
+    <ClCompile Include="GLTF_Loader.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="WICTextureLoader12.cpp" />
     <ClCompile Include="Win32Application.cpp" />
