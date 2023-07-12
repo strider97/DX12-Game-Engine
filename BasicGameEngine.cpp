@@ -245,8 +245,8 @@ void BasicGameEngine::LoadPipelineAssets()
         D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
         {
             { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "NORMAL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "UV", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+            { "NORMAL", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            { "UV", 2, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
         };
 
         D3D12_RASTERIZER_DESC rasterizerDesc;
@@ -474,7 +474,7 @@ void BasicGameEngine::loadModels() {
     // m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
     // WaitForPreviousFrame();
 
-    bufferManager->loadBufferViews(model.bufferViews, model.accessors, bufferViewHeap);
+    bufferManager->loadBufferViews(model);
 }
 
 // Update frame-based values.
