@@ -23,7 +23,7 @@ D3D12_INDEX_BUFFER_VIEW getIndexBufferView(tinygltf::Accessor &accessor,
     UINT32 byteOffset = bufferView.byteOffset + accessor.byteOffset;
     indexBufferView.BufferLocation = gpuVirtualAddress + byteOffset;
     indexBufferView.SizeInBytes = 2 * accessor.count;
-    indexBufferView.Format = DXGI_FORMAT_R16_UINT;
+    indexBufferView.Format = DXGI_FORMAT_R16_SNORM;
 
     return indexBufferView;
 }
@@ -31,10 +31,17 @@ D3D12_INDEX_BUFFER_VIEW getIndexBufferView(tinygltf::Accessor &accessor,
 MeshPrimitive::MeshPrimitive(
     std::vector<ComPtr<ID3D12Resource>>& vertexBuffers,
     tinygltf::Primitive& primitive,
-    std::vector <tinygltf::BufferView>& bufferViews,
-    std::vector <tinygltf::Accessor>& accessors,
-    tinygltf::Material& material)
-{
+    tinygltf::Model &model,
+    CD3DX12_CPU_DESCRIPTOR_HANDLE materialHeapCpuhandle,
+	CD3DX12_GPU_DESCRIPTOR_HANDLE materialHeapGpuhandle)
+{   
+    this->primitive = primitive;
+    this->materialHeapCpuhandle = materialHeapCpuhandle;
+    this->materialHeapGpuhandle = materialHeapGpuhandle;
+
+    auto &bufferViews = model.bufferViews;
+    auto &accessors = model.accessors;
+    auto &material = model.materials[primitive.material];
     this->material = material;
 
     int positionIndex = primitive.attributes["POSITION"];
@@ -71,10 +78,10 @@ MeshPrimitive::MeshPrimitive(
     accessor = accessors[primitive.indices];
     bufferView = bufferViews[accessor.bufferView];
     vertexBuffer = vertexBuffers[bufferView.buffer];
+    this->indexCount = accessor.count;
     this->indexBufferView = getIndexBufferView(
         accessor,
         bufferView,
         vertexBuffer.Get()->GetGPUVirtualAddress()
     );
-
 }

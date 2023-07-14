@@ -17,6 +17,12 @@ cbuffer SceneConstantBuffer : register(b0)
     float3 lightDir;
 };
 
+cbuffer MaterialBuffer : register(b1) 
+{
+    float3 baseColor;
+    float roughness;
+};
+
 struct VSInput
 {
     float3 pos : POSITION;
@@ -100,7 +106,7 @@ float getShadowMultiplier(float4 fragposLightSpace) {
     projectionCoords.y = 1 - projectionCoords.y;
     float closestDepth = shadowMapTexture.Sample(g_sampler, projectionCoords.xy).r;
     float currentDepth = projectionCoords.z;
-    return (currentDepth - 0.00001f) > closestDepth ? 0.0f : 1.0f;
+    return (currentDepth - 0.0001f) > closestDepth ? 0.0f : 1.0f;
 }
 
 // float4 PSMain(PSInput vsOut) : SV_TARGET
@@ -129,11 +135,11 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
 {
     float kd = 0.4;
     float ks = 0.2;
-    float ka = 0.1;
-    float3 color = float3(255, 212, 128)/255;
+    float ka = 0.2;
+    float3 color = baseColor;//float3(255, 212, 128)/255;
     bool isMetal = false;
-    float lightIntensity = 1.2f;
-    float3 texColor = sRGB_FromLinear3(albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, 1 - vsOut.uv.y)).rgb);
+    float lightIntensity = 2.2f;
+    // float3 texColor = sRGB_FromLinear3(albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, 1 - vsOut.uv.y)).rgb);
 
     // return float4(float3(getShadowMultiplier(vsOut.fragPosLightSpace), 0, 0), 1);
 
@@ -142,8 +148,8 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     // float3 h = normalize(l + v);
 
     float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
-    float3 diff = kd * saturate(dot(l, vsOut.normal)) * texColor;
-    float3 ambient = ka * texColor;
+    float3 diff = kd * saturate(dot(l, vsOut.normal)) * color;
+    float3 ambient = ka * color;
 
     float3 radiance = lightIntensity * shadowValue * diff + ambient;
 

@@ -63,7 +63,9 @@ void DXSample::GetHardwareAdapter(
             DXGI_ADAPTER_DESC1 desc;
             adapter->GetDesc1(&desc);
 
-            if (desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
+            if (
+                //desc.VendorId = 4098 && 
+                desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
             {
                 // Don't select the Basic Render Driver adapter.
                 // If you want a software adapter, pass in "/warp" on the command line.

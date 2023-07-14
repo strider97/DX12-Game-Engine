@@ -52,15 +52,6 @@ struct Texture
     }
 };
 
-struct Material {
-    Texture textureAlbedo;
-};
-
-struct Model {
-    std::vector<Vertex> vertices;
-    Material material;
-};
-
 class BasicGameEngine : public DXSample
 {
 public:

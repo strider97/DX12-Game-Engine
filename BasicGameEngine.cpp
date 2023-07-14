@@ -169,7 +169,7 @@ void BasicGameEngine::LoadPipelineAssets()
         }
 
         CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
-        CD3DX12_ROOT_PARAMETER1 rootParameters[2];
+        CD3DX12_ROOT_PARAMETER1 rootParameters[3];
         CD3DX12_ROOT_PARAMETER1 shadowRootParameters[1];
 
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
@@ -177,6 +177,7 @@ void BasicGameEngine::LoadPipelineAssets()
 
         ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0);
         rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_PIXEL);
+        rootParameters[2].InitAsConstantBufferView(1);
 
         shadowRootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
 
@@ -245,15 +246,15 @@ void BasicGameEngine::LoadPipelineAssets()
         D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
         {
             { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "NORMAL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "UV", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+            { "NORMAL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            { "UV", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
         };
 
         D3D12_RASTERIZER_DESC rasterizerDesc;
         ZeroMemory(&rasterizerDesc, sizeof(rasterizerDesc));
         rasterizerDesc.FillMode = D3D12_FILL_MODE_SOLID;
         rasterizerDesc.CullMode = D3D12_CULL_MODE_NONE;
-        rasterizerDesc.FrontCounterClockwise = FALSE;
+        rasterizerDesc.FrontCounterClockwise = TRUE;
         rasterizerDesc.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
         rasterizerDesc.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
         rasterizerDesc.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
@@ -334,9 +335,11 @@ void BasicGameEngine::LoadPipelineAssets()
         shadowPipelineDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         shadowPipelineDesc.NumRenderTargets = 0;
         shadowPipelineDesc.SampleDesc.Count = 1;
-        shadowPipelineDesc.RasterizerState.DepthBias = 100000;
+        shadowPipelineDesc.RasterizerState.DepthBias = 0;
         shadowPipelineDesc.RasterizerState.DepthBiasClamp = 0.0f;
-        shadowPipelineDesc.RasterizerState.SlopeScaledDepthBias = 1.0f;
+        shadowPipelineDesc.RasterizerState.SlopeScaledDepthBias = 0.0f;
+        shadowPipelineDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+        shadowPipelineDesc.RasterizerState.FrontCounterClockwise = TRUE;
         shadowPipelineDesc.RTVFormats[0] = DXGI_FORMAT_UNKNOWN;
 
         ThrowIfFailed(m_device->CreateGraphicsPipelineState(&shadowPipelineDesc, IID_PPV_ARGS(&m_shadowPipelineState)));
@@ -359,37 +362,6 @@ void BasicGameEngine::LoadPipelineAssets()
         IID_PPV_ARGS(&m_ShadowCommandList)));
 
     ThrowIfFailed(m_ShadowCommandList->Close());
-
-
-    // Create the vertex buffer.
-    {
-
-        const UINT vertexBufferSize = m_vertices.size() * sizeof(Vertex);
-
-        // Note: using upload heaps to transfer static data like vert buffers is not 
-        // recommended. Every time the GPU needs it, the upload heap will be marshalled 
-        // over. Please read up on Default Heap usage. An upload heap is used here for 
-        // code simplicity and because there are very few verts to actually transfer.
-        ThrowIfFailed(m_device->CreateCommittedResource(
-            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
-            D3D12_HEAP_FLAG_NONE,
-            &CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize),
-            D3D12_RESOURCE_STATE_GENERIC_READ,
-            nullptr,
-            IID_PPV_ARGS(&m_vertexBuffer)));
-
-        // Copy the triangle data to the vertex buffer.
-        UINT8* pVertexDataBegin;
-        CD3DX12_RANGE readRange(0, 0);        // We do not intend to read from this resource on the CPU.
-        ThrowIfFailed(m_vertexBuffer->Map(0, &readRange, reinterpret_cast<void**>(&pVertexDataBegin)));
-        memcpy(pVertexDataBegin, m_vertices.data(), vertexBufferSize);
-        m_vertexBuffer->Unmap(0, nullptr);
-
-        // Initialize the vertex buffer view.
-        m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
-        m_vertexBufferView.StrideInBytes = sizeof(Vertex);
-        m_vertexBufferView.SizeInBytes = vertexBufferSize;
-    }
 
     // Create shadow map
     {
@@ -456,23 +428,25 @@ void BasicGameEngine::LoadPipelineAssets()
         // Wait for the command list to execute; we are reusing the same command 
         // list in our main loop but for now, we just want to wait for setup to 
         // complete before continuing.
-        // WaitForPreviousFrame();
+        WaitForPreviousFrame();
     }
 }
 
 void BasicGameEngine::loadObjects()  {
-    ObjLoader::loadObj("./Models/shapes.obj", m_vertices);
+    
 }
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandList);
-    GLTF_Loader::loadGltf("./Models/shapes.glb", model);
+    GLTF_Loader::loadGltf("./Models/windmill.glb", model);
     bufferManager->loadBuffers(model.buffers);
+    bufferManager->loadMaterials(model.materials);
 
-    // ThrowIfFailed(m_commandList->Close());
-    // ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-    // m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-    // WaitForPreviousFrame();
+    ThrowIfFailed(m_commandList->Close());
+    ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+    m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+    WaitForPreviousFrame();
+    ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
 
     bufferManager->loadBufferViews(model);
 }
@@ -540,14 +514,21 @@ void BasicGameEngine::drawShadowMap() {
         D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE));
 
     m_ShadowCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    m_ShadowCommandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
     m_ShadowCommandList->RSSetViewports(1, &m_shadowMap->Viewport());
     m_ShadowCommandList->RSSetScissorRects(1, &m_shadowMap->ScissorRect());
     m_ShadowCommandList->ClearDepthStencilView(m_shadowMap->Dsv(), 
         D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
     m_ShadowCommandList->OMSetRenderTargets(0, nullptr, false, &m_shadowMap->Dsv());
 
-    m_ShadowCommandList->DrawInstanced(m_vertices.size(), 1, 0, 0);
+    for (auto& meshPrimitive : bufferManager->meshPrimitives) {
+        D3D12_VERTEX_BUFFER_VIEW bufferViews[] = {
+            meshPrimitive.vbViewPosition, 
+            meshPrimitive.vbViewNormal, 
+            meshPrimitive.vbViewUV };
+        m_ShadowCommandList->IASetVertexBuffers(0, 3, bufferViews);
+        m_ShadowCommandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
+        m_ShadowCommandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
+    }
 
     m_ShadowCommandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_shadowMap->Resource(),
         D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ));
@@ -601,8 +582,20 @@ void BasicGameEngine::PopulateCommandList()
     const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
     m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
     m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-    m_commandList->DrawInstanced(m_vertices.size(), 1, 0, 0);
+
+    for (auto& meshPrimitive : bufferManager->meshPrimitives) {
+        D3D12_VERTEX_BUFFER_VIEW bufferViews[] = {
+            meshPrimitive.vbViewPosition,
+            meshPrimitive.vbViewNormal,
+            meshPrimitive.vbViewUV };
+        D3D12_GPU_VIRTUAL_ADDRESS materialHeapAddress = bufferManager->
+            getGpuVirtualAddressForMaterial(meshPrimitive.primitive.material);
+    
+        m_commandList->IASetVertexBuffers(0, 3, bufferViews);
+        m_commandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
+        m_commandList->SetGraphicsRootConstantBufferView(2, materialHeapAddress);
+        m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
+    }
 
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
