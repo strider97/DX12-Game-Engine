@@ -64,7 +64,7 @@ void DXSample::GetHardwareAdapter(
             adapter->GetDesc1(&desc);
 
             if (
-                //desc.VendorId = 4098 && 
+            //    !desc.VendorId == 4098 && 
                 desc.Flags & DXGI_ADAPTER_FLAG_SOFTWARE)
             {
                 // Don't select the Basic Render Driver adapter.

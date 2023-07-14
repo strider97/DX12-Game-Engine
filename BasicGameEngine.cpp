@@ -438,9 +438,10 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandList);
-    GLTF_Loader::loadGltf("./Models/windmill.glb", model);
+    GLTF_Loader::loadGltf("./Models/girl_bayley.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
+//    bufferManager->loadImages(model.images);
 
     ThrowIfFailed(m_commandList->Close());
     ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
@@ -448,6 +449,7 @@ void BasicGameEngine::loadModels() {
     WaitForPreviousFrame();
     ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
 
+    bufferManager->loadImagesHeap(model.images);
     bufferManager->loadBufferViews(model);
 }
 
@@ -589,11 +591,14 @@ void BasicGameEngine::PopulateCommandList()
             meshPrimitive.vbViewNormal,
             meshPrimitive.vbViewUV };
         D3D12_GPU_VIRTUAL_ADDRESS materialHeapAddress = bufferManager->
-            getGpuVirtualAddressForMaterial(meshPrimitive.primitive.material);
+            getGpuVirtualAddressForMaterial(max(0, meshPrimitive.primitive.material));
     
         m_commandList->IASetVertexBuffers(0, 3, bufferViews);
         m_commandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
         m_commandList->SetGraphicsRootConstantBufferView(2, materialHeapAddress);
+    //    if(meshPrimitive.hasBaseColorTexture)
+    //        m_commandList->SetGraphicsRootDescriptorTable(1, meshPrimitive.baseColorTextureGpuhandle);
+
         m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
     }
 

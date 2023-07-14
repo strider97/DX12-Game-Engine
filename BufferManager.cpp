@@ -107,7 +107,17 @@ void BufferManager::loadBufferViews(tinygltf::Model &model)
 			handleCpu.Offset(primitive.material, heapDescriptorSize);
 			CD3DX12_GPU_DESCRIPTOR_HANDLE handleGpu = CD3DX12_GPU_DESCRIPTOR_HANDLE(materialHeap.Get()->GetGPUDescriptorHandleForHeapStart());
 			handleGpu.Offset(primitive.material, heapDescriptorSize);
-			MeshPrimitive meshPrimitive (vertexBuffers, primitive, model, handleCpu, handleGpu);
+			
+			CD3DX12_CPU_DESCRIPTOR_HANDLE imageHandleCpu = handleCpu;
+			CD3DX12_GPU_DESCRIPTOR_HANDLE imageHandleGpu = handleGpu;
+			if(imageBuffers.size() > 0) {
+				imageHandleCpu = CD3DX12_CPU_DESCRIPTOR_HANDLE(imagesHeap.Get()->GetCPUDescriptorHandleForHeapStart());
+				imageHandleCpu.Offset(primitive.material, heapDescriptorSize);
+				imageHandleGpu = CD3DX12_GPU_DESCRIPTOR_HANDLE(imagesHeap.Get()->GetGPUDescriptorHandleForHeapStart());
+				imageHandleGpu.Offset(primitive.material, heapDescriptorSize);
+			}
+
+			MeshPrimitive meshPrimitive (vertexBuffers, primitive, model, handleCpu, handleGpu, imageHandleCpu, imageHandleGpu);
 			meshPrimitives.push_back(meshPrimitive);
 		}
 	}
@@ -118,4 +128,69 @@ D3D12_GPU_VIRTUAL_ADDRESS BufferManager::getGpuVirtualAddressForMaterial(int ind
 	D3D12_GPU_VIRTUAL_ADDRESS address = materialBuffer.Get()->GetGPUVirtualAddress();
 	address += index * sizeof(Material);
 	return address;
+}
+
+void BufferManager::loadImages(std::vector<tinygltf::Image> &images) {
+	for (int i = 0; i<images.size(); i++) {
+		auto &image = images[i];
+		ComPtr<ID3D12Resource> imageBuffer;
+		int imageSize = image.image.size();
+        device->CreateCommittedResource(
+            &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
+            D3D12_HEAP_FLAG_NONE,
+            &CD3DX12_RESOURCE_DESC::Buffer(imageSize),
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            nullptr,
+            IID_PPV_ARGS(imageBuffer.GetAddressOf())
+        );
+		imageBuffers.push_back(imageBuffer);
+
+		ComPtr<ID3D12Resource> imageUploadBuffer;
+		device->CreateCommittedResource(
+			&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_UPLOAD),
+			D3D12_HEAP_FLAG_NONE,
+			&CD3DX12_RESOURCE_DESC::Buffer(imageSize),
+			D3D12_RESOURCE_STATE_GENERIC_READ,
+			nullptr,
+			IID_PPV_ARGS(&imageUploadBuffer)
+		);
+		imageUploadBuffers.push_back(imageUploadBuffer);
+
+		void* uploadData;
+		imageUploadBuffer->Map(0, nullptr, &uploadData);
+		memcpy(uploadData, &image.image[0], imageSize);
+		imageUploadBuffer->Unmap(0, nullptr);
+
+		commandList->CopyBufferRegion(imageBuffers[i].Get(), 0, imageUploadBuffers[i].Get(), 0, imageSize);
+		commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+			imageBuffers[i].Get(), 
+			D3D12_RESOURCE_STATE_COPY_DEST, 
+			D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER
+		));
+	}
+}
+
+void BufferManager::loadImagesHeap(std::vector<tinygltf::Image> &images) {
+	if(imageBuffers.size() == 0)
+		return;
+
+	D3D12_DESCRIPTOR_HEAP_DESC imagesHeapDesc = {};
+	imagesHeapDesc.NumDescriptors = images.size();
+	imagesHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+	imagesHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+	ThrowIfFailed(device->CreateDescriptorHeap(&imagesHeapDesc, IID_PPV_ARGS(&imagesHeap)));
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(imagesHeap -> GetCPUDescriptorHandleForHeapStart());
+	for (int i = 0; i<images.size(); i++) {
+		auto &image = images[i];
+		D3D12_SHADER_RESOURCE_VIEW_DESC imageDesc = {};
+		imageDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+		imageDesc.Format = imageBuffers[i].Get()->GetDesc().Format;
+		imageDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+		imageDesc.Texture2D.MostDetailedMip = 0;
+		imageDesc.Texture2D.MipLevels = imageBuffers[i].Get() -> GetDesc().MipLevels;
+		imageDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+		device->CreateShaderResourceView(imageBuffers[i].Get(), &imageDesc, hDescriptor);
+		hDescriptor.Offset(heapDescriptorSize);
+	}
 }

@@ -33,15 +33,20 @@ MeshPrimitive::MeshPrimitive(
     tinygltf::Primitive& primitive,
     tinygltf::Model &model,
     CD3DX12_CPU_DESCRIPTOR_HANDLE materialHeapCpuhandle,
-	CD3DX12_GPU_DESCRIPTOR_HANDLE materialHeapGpuhandle)
+	CD3DX12_GPU_DESCRIPTOR_HANDLE materialHeapGpuhandle,
+    CD3DX12_CPU_DESCRIPTOR_HANDLE imageHandleCpu,
+    CD3DX12_GPU_DESCRIPTOR_HANDLE imageHandleGpu)
 {   
     this->primitive = primitive;
     this->materialHeapCpuhandle = materialHeapCpuhandle;
     this->materialHeapGpuhandle = materialHeapGpuhandle;
+    this->baseColorTextureCpuhandle = imageHandleCpu;
+    this->baseColorTextureGpuhandle = imageHandleGpu;
+    this->hasBaseColorTexture = material.pbrMetallicRoughness.baseColorTexture.index != -1;
 
     auto &bufferViews = model.bufferViews;
     auto &accessors = model.accessors;
-    auto &material = model.materials[primitive.material];
+    auto &material = model.materials[max(0, primitive.material)];
     this->material = material;
 
     int positionIndex = primitive.attributes["POSITION"];
