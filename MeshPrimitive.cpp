@@ -29,7 +29,7 @@ D3D12_INDEX_BUFFER_VIEW getIndexBufferView(tinygltf::Accessor &accessor,
 }
 
 MeshPrimitive::MeshPrimitive(
-    std::vector<ComPtr<ID3D12Resource>>& vertexBuffers,
+    std::vector<ComPtr<ID3D12Resource>>& buffers,
     tinygltf::Primitive& primitive,
     tinygltf::Model &model,
     CD3DX12_CPU_DESCRIPTOR_HANDLE materialHeapCpuhandle,
@@ -42,7 +42,8 @@ MeshPrimitive::MeshPrimitive(
     this->materialHeapGpuhandle = materialHeapGpuhandle;
     this->baseColorTextureCpuhandle = imageHandleCpu;
     this->baseColorTextureGpuhandle = imageHandleGpu;
-    this->hasBaseColorTexture = material.pbrMetallicRoughness.baseColorTexture.index != -1;
+    if (material.pbrMetallicRoughness.baseColorTexture.index >= 0);
+        this->hasBaseColorTexture = true;
 
     auto &bufferViews = model.bufferViews;
     auto &accessors = model.accessors;
@@ -55,7 +56,7 @@ MeshPrimitive::MeshPrimitive(
 
     tinygltf::Accessor& accessor = accessors[positionIndex];
     tinygltf::BufferView& bufferView = bufferViews[accessor.bufferView];
-    ComPtr<ID3D12Resource>& vertexBuffer = vertexBuffers[bufferView.buffer];
+    ComPtr<ID3D12Resource>& vertexBuffer = buffers[bufferView.buffer];
     this->vbViewPosition = getVertexBufferView(
         accessor,
         bufferView,
@@ -64,7 +65,7 @@ MeshPrimitive::MeshPrimitive(
 
     accessor = accessors[normalsIndex];
     bufferView = bufferViews[accessor.bufferView];
-    vertexBuffer = vertexBuffers[bufferView.buffer];
+    vertexBuffer = buffers[bufferView.buffer];
     this->vbViewNormal = getVertexBufferView(
         accessor,
         bufferView,
@@ -73,7 +74,7 @@ MeshPrimitive::MeshPrimitive(
 
     accessor = accessors[uvIndex];
     bufferView = bufferViews[accessor.bufferView];
-    vertexBuffer = vertexBuffers[bufferView.buffer];
+    vertexBuffer = buffers[bufferView.buffer];
     this->vbViewUV = getVertexBufferView(
         accessor,
         bufferView,
@@ -82,7 +83,7 @@ MeshPrimitive::MeshPrimitive(
 
     accessor = accessors[primitive.indices];
     bufferView = bufferViews[accessor.bufferView];
-    vertexBuffer = vertexBuffers[bufferView.buffer];
+    vertexBuffer = buffers[bufferView.buffer];
     this->indexCount = accessor.count;
     this->indexBufferView = getIndexBufferView(
         accessor,

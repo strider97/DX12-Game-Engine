@@ -437,11 +437,11 @@ void BasicGameEngine::loadObjects()  {
 }
 
 void BasicGameEngine::loadModels() {
-    bufferManager = new BufferManager(m_device, m_commandList);
-    GLTF_Loader::loadGltf("./Models/girl_bayley.glb", model);
+    bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
+    GLTF_Loader::loadGltf("./Models/car.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
-//    bufferManager->loadImages(model.images);
+    bufferManager->loadImages(model);
 
     ThrowIfFailed(m_commandList->Close());
     ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
@@ -596,8 +596,8 @@ void BasicGameEngine::PopulateCommandList()
         m_commandList->IASetVertexBuffers(0, 3, bufferViews);
         m_commandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
         m_commandList->SetGraphicsRootConstantBufferView(2, materialHeapAddress);
-    //    if(meshPrimitive.hasBaseColorTexture)
-    //        m_commandList->SetGraphicsRootDescriptorTable(1, meshPrimitive.baseColorTextureGpuhandle);
+        if(meshPrimitive.hasBaseColorTexture)
+            m_commandList->SetGraphicsRootDescriptorTable(1, meshPrimitive.baseColorTextureGpuhandle);
 
         m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
     }

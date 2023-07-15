@@ -36,21 +36,21 @@ struct Vertex
     XMFLOAT2 uv;
 };
 
-struct Texture
-{
-    // Unique material name for lookup.
-    std::wstring filename;
-    Microsoft::WRL::ComPtr<ID3D12Resource> resource =
-        nullptr;
-    Microsoft::WRL::ComPtr<ID3D12Resource> uploadHeap =
-        nullptr;
-    std::unique_ptr<uint8_t[]> decodedData;
-    D3D12_SUBRESOURCE_DATA subresource;
+// struct Texture
+// {
+//     // Unique material name for lookup.
+//     std::wstring filename;
+//     Microsoft::WRL::ComPtr<ID3D12Resource> resource =
+//         nullptr;
+//     Microsoft::WRL::ComPtr<ID3D12Resource> uploadHeap =
+//         nullptr;
+//     std::unique_ptr<uint8_t[]> decodedData;
+//     D3D12_SUBRESOURCE_DATA subresource;
 
-    Texture(std::wstring filename) {
-        this->filename = filename;
-    }
-};
+//     Texture(std::wstring filename) {
+//         this->filename = filename;
+//     }
+// };
 
 class BasicGameEngine : public DXSample
 {

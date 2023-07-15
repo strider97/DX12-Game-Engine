@@ -139,8 +139,9 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float3 color = baseColor;//float3(255, 212, 128)/255;
     bool isMetal = false;
     float lightIntensity = 2.2f;
-    // float3 texColor = sRGB_FromLinear3(albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, 1 - vsOut.uv.y)).rgb);
-
+    float3 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
+    texColor = sRGB_FromLinear3(texColor);
+    return float4(texColor, 1);
     // return float4(float3(getShadowMultiplier(vsOut.fragPosLightSpace), 0, 0), 1);
 
     float3 l = lightDir;
@@ -148,8 +149,8 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     // float3 h = normalize(l + v);
 
     float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
-    float3 diff = kd * saturate(dot(l, vsOut.normal)) * color;
-    float3 ambient = ka * color;
+    float3 diff = kd * saturate(dot(l, vsOut.normal)) * texColor * color;
+    float3 ambient = ka * texColor * color;
 
     float3 radiance = lightIntensity * shadowValue * diff + ambient;
 
