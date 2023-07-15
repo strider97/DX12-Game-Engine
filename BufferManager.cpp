@@ -105,6 +105,8 @@ void BufferManager::loadBufferViews(tinygltf::Model &model)
 {	
 	for(auto &mesh : model.meshes) {
 		for (auto &primitive : mesh.primitives) {
+			if (primitive.material < 0)
+				continue;
 			CD3DX12_CPU_DESCRIPTOR_HANDLE handleCpu = CD3DX12_CPU_DESCRIPTOR_HANDLE(materialHeap.Get()->GetCPUDescriptorHandleForHeapStart());
 			handleCpu.Offset(primitive.material, heapDescriptorSize);
 			CD3DX12_GPU_DESCRIPTOR_HANDLE handleGpu = CD3DX12_GPU_DESCRIPTOR_HANDLE(materialHeap.Get()->GetGPUDescriptorHandleForHeapStart());
@@ -137,11 +139,14 @@ D3D12_GPU_VIRTUAL_ADDRESS BufferManager::getGpuVirtualAddressForMaterial(int ind
 }
 
 
-void BufferManager::loadImages(std::vector<tinygltf::Image> &images) {
+void BufferManager::loadImages2(tinygltf::Model &model) {
+	auto &images = model.images;
 	for (int i = 0; i<images.size(); i++) {
 		auto &image = images[i];
 		ComPtr<ID3D12Resource> imageBuffer;
-		int imageSize = image.image.size();
+		auto &bufferView = model.bufferViews[image.bufferView];
+		auto &buffer = model.buffers[bufferView.buffer];
+		int imageSize = bufferView.byteLength;
         device->CreateCommittedResource(
             &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
             D3D12_HEAP_FLAG_NONE,
@@ -165,7 +170,7 @@ void BufferManager::loadImages(std::vector<tinygltf::Image> &images) {
 
 		void* uploadData;
 		imageUploadBuffer->Map(0, nullptr, &uploadData);
-		memcpy(uploadData, &image.image[0], imageSize);
+		memcpy(uploadData, &buffer.data[0] + bufferView.byteOffset, imageSize);
 		imageUploadBuffer->Unmap(0, nullptr);
 
 		commandList->CopyBufferRegion(imageBuffers[i].Get(), 0, imageUploadBuffers[i].Get(), 0, imageSize);
@@ -219,7 +224,7 @@ DXGI_FORMAT getDXGIFormatForImage(tinygltf::Image &image) {
 }
 
 void BufferManager::loadImagesHeap(std::vector<tinygltf::Image> &gltfImages) {
-	if(images.size() == 0)
+	if(images.size() == 0 && imageBuffers.size() == 0)
 		return;
 
 	D3D12_DESCRIPTOR_HEAP_DESC imagesHeapDesc = {};
@@ -229,16 +234,16 @@ void BufferManager::loadImagesHeap(std::vector<tinygltf::Image> &gltfImages) {
 	ThrowIfFailed(device->CreateDescriptorHeap(&imagesHeapDesc, IID_PPV_ARGS(&imagesHeap)));
 
 	CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(imagesHeap -> GetCPUDescriptorHandleForHeapStart());
-	for (int i = 0; i<images.size(); i++) {
-		auto &image = images[i];
+	for (int i = 0; i<gltfImages.size(); i++) {
+		auto &image = images[i]->resource;
 		D3D12_SHADER_RESOURCE_VIEW_DESC imageDesc = {};
 		imageDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-		imageDesc.Format = images[i]->resource.Get()->GetDesc().Format;
+		imageDesc.Format = image.Get()->GetDesc().Format;
 		imageDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
 		imageDesc.Texture2D.MostDetailedMip = 0;
-		imageDesc.Texture2D.MipLevels = images[i]->resource.Get() -> GetDesc().MipLevels;
+		imageDesc.Texture2D.MipLevels = image.Get() -> GetDesc().MipLevels;
 		imageDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-		device->CreateShaderResourceView(images[i]->resource.Get(), &imageDesc, hDescriptor);
+		device->CreateShaderResourceView(image.Get(), &imageDesc, hDescriptor);
 		hDescriptor.Offset(heapDescriptorSize);
 	}
 }

@@ -42,12 +42,13 @@ MeshPrimitive::MeshPrimitive(
     this->materialHeapGpuhandle = materialHeapGpuhandle;
     this->baseColorTextureCpuhandle = imageHandleCpu;
     this->baseColorTextureGpuhandle = imageHandleGpu;
-    if (material.pbrMetallicRoughness.baseColorTexture.index >= 0);
+    auto &material = model.materials[max(0, primitive.material)];
+    int textureIndex = material.pbrMetallicRoughness.baseColorTexture.index;
+    if (textureIndex >= 0 && textureIndex < model.images.size())
         this->hasBaseColorTexture = true;
 
     auto &bufferViews = model.bufferViews;
     auto &accessors = model.accessors;
-    auto &material = model.materials[max(0, primitive.material)];
     this->material = material;
 
     int positionIndex = primitive.attributes["POSITION"];

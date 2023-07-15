@@ -33,7 +33,7 @@ void BasicGameEngine::OnInit()
     LoadPipelineAssets();
     loadModels();
 
-    loadTextureFromFile(new Texture(L"./Textures/white-brick.png"));
+    loadTextureFromFile(new Texture(L"./Textures/white.png"));
 }
 
 // Load the rendering pipeline dependencies.
@@ -168,16 +168,19 @@ void BasicGameEngine::LoadPipelineAssets()
             featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
         }
 
-        CD3DX12_DESCRIPTOR_RANGE1 ranges[2];
-        CD3DX12_ROOT_PARAMETER1 rootParameters[3];
+        CD3DX12_DESCRIPTOR_RANGE1 ranges[3];
+        CD3DX12_ROOT_PARAMETER1 rootParameters[4];
         CD3DX12_ROOT_PARAMETER1 shadowRootParameters[1];
 
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
         rootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_ALL);
-
-        ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0);
-        rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_PIXEL);
         rootParameters[2].InitAsConstantBufferView(1);
+
+        ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
+        rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_PIXEL);
+
+        ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
+        rootParameters[3].InitAsDescriptorTable(1, &ranges[2], D3D12_SHADER_VISIBILITY_PIXEL);
 
         shadowRootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
 
@@ -367,13 +370,13 @@ void BasicGameEngine::LoadPipelineAssets()
     {
         m_shadowMap = new ShadowMap(m_device.Get(), 1024, 1024);
         CD3DX12_CPU_DESCRIPTOR_HANDLE hSrv(m_cbvHeap -> GetCPUDescriptorHandleForHeapStart());
-        hSrv.Offset(2, m_cbvHeapDescriptorSize);
+        hSrv.Offset(1, m_cbvHeapDescriptorSize);
 
         CD3DX12_CPU_DESCRIPTOR_HANDLE hDsv(m_dsvHeap -> GetCPUDescriptorHandleForHeapStart());
         hDsv.Offset(1, m_dsvHeapDescriptorSize);
 
         CD3DX12_GPU_DESCRIPTOR_HANDLE hSrvGpu(m_cbvHeap -> GetGPUDescriptorHandleForHeapStart());
-        hSrvGpu.Offset(2, m_cbvHeapDescriptorSize);
+        hSrvGpu.Offset(1, m_cbvHeapDescriptorSize);
 
         m_shadowMap->BuildDescriptors(hSrv, hSrvGpu, hDsv);
     }
@@ -438,7 +441,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/car.glb", model);
+    GLTF_Loader::loadGltf("./Models/cammy.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -567,6 +570,7 @@ void BasicGameEngine::PopulateCommandList()
     m_commandList->SetGraphicsRootDescriptorTable(0, cbv_srv_handle);
     cbv_srv_handle.Offset(1, m_cbvHeapDescriptorSize);
     m_commandList->SetGraphicsRootDescriptorTable(1, cbv_srv_handle);
+    cbv_srv_handle.Offset(1, m_cbvHeapDescriptorSize);
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);
     m_commandList->ClearDepthStencilView(m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), 
@@ -597,7 +601,10 @@ void BasicGameEngine::PopulateCommandList()
         m_commandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
         m_commandList->SetGraphicsRootConstantBufferView(2, materialHeapAddress);
         if(meshPrimitive.hasBaseColorTexture)
-            m_commandList->SetGraphicsRootDescriptorTable(1, meshPrimitive.baseColorTextureGpuhandle);
+            m_commandList->SetGraphicsRootDescriptorTable(3, meshPrimitive.baseColorTextureGpuhandle);
+        else {
+           m_commandList->SetGraphicsRootDescriptorTable(3, cbv_srv_handle);
+        }
 
         m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
     }
@@ -845,7 +852,7 @@ void BasicGameEngine::loadTextureFromFile(Texture* texture) {
 void BasicGameEngine::loadSrvHeapResources(Texture* texture) {
     CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(
         m_cbvHeap -> GetCPUDescriptorHandleForHeapStart());
-    hDescriptor.Offset(1, m_cbvHeapDescriptorSize);
+    hDescriptor.Offset(2, m_cbvHeapDescriptorSize);
     D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
     srvDesc.Format = texture->resource -> GetDesc().Format;

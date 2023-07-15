@@ -40,8 +40,9 @@ struct PSInput
     float4 fragPosLightSpace : LIGHT_SPACE;
 };
 
-Texture2D albedoTexture : register(t0);
-Texture2D shadowMapTexture : register(t1);
+Texture2D shadowMapTexture : register(t0);
+Texture2D defaultAlbedoTexture : register(t1);
+Texture2D albedoTexture : register(t1);
 SamplerState g_sampler : register(s0);
 
 PSInput VSMain(VSInput vInput)
@@ -138,10 +139,12 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float ka = 0.2;
     float3 color = baseColor;//float3(255, 212, 128)/255;
     bool isMetal = false;
-    float lightIntensity = 2.2f;
+    float lightIntensity = 1.2f;
+    float3 defaultColor = defaultAlbedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
     float3 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
-    texColor = sRGB_FromLinear3(texColor);
-    return float4(texColor, 1);
+    color = sRGB_FromLinear3(color);
+    // texColor = sRGB_FromLinear3(texColor);
+    // return float4(texColor, 1);
     // return float4(float3(getShadowMultiplier(vsOut.fragPosLightSpace), 0, 0), 1);
 
     float3 l = lightDir;
@@ -149,8 +152,8 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     // float3 h = normalize(l + v);
 
     float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
-    float3 diff = kd * saturate(dot(l, vsOut.normal)) * texColor * color;
-    float3 ambient = ka * texColor * color;
+    float3 diff = kd * saturate(dot(l, vsOut.normal)) * color * texColor;
+    float3 ambient = ka * color * texColor;
 
     float3 radiance = lightIntensity * shadowValue * diff + ambient;
 

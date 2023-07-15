@@ -47,7 +47,7 @@ public:
 	CD3DX12_GPU_DESCRIPTOR_HANDLE baseColorTextureGpuhandle;
 
 	int indexCount = 0;
-	bool hasBaseColorTexture;
+	bool hasBaseColorTexture = false;
 	tinygltf::Material material;
 	tinygltf::Primitive primitive;
 private:
@@ -68,6 +68,7 @@ public:
 	D3D12_GPU_VIRTUAL_ADDRESS getGpuVirtualAddressForMaterial(int index);
 	void loadImagesHeap(std::vector<tinygltf::Image> &images);
 	void loadImages(tinygltf::Model &model);
+	void loadImages2(tinygltf::Model &model);
 
 private:
 	std::vector<ComPtr<ID3D12Resource>> buffers;
