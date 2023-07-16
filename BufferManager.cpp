@@ -57,7 +57,7 @@ void BufferManager::loadMaterials(std::vector<tinygltf::Material> &gltfMaterials
 		Material material;
 		material.roughness = gltfMat.pbrMetallicRoughness.roughnessFactor;
 		auto &color = gltfMat.pbrMetallicRoughness.baseColorFactor;
-		material.baseColor = { (float)color[0], (float)color[1], (float)color[2] };
+		material.baseColor = { (float)color[0], (float)color[1], (float)color[2], (float) color[3] };
 		materials.push_back(material);
 	}
 
@@ -126,7 +126,10 @@ void BufferManager::loadBufferViews(tinygltf::Model &model)
 			}
 
 			MeshPrimitive meshPrimitive (buffers, primitive, model, handleCpu, handleGpu, imageHandleCpu, imageHandleGpu);
-			meshPrimitives.push_back(meshPrimitive);
+			if(meshPrimitive.material.alphaMode != "OPAQUE")
+				meshPrimitivesTransparent.push_back(meshPrimitive);
+			else
+				meshPrimitives.push_back(meshPrimitive);
 		}
 	}
 }
@@ -183,7 +186,7 @@ void BufferManager::loadImages2(tinygltf::Model &model) {
 }
 
 
-void CreateTextureFromMemory(ComPtr<ID3D12Device> &device, ComPtr<ID3D12GraphicsCommandList> &commandList, const uint8_t* textureData, const size_t textureDataSize, Texture *texture)
+void createTextureFromMemory(ComPtr<ID3D12Device> &device, ComPtr<ID3D12GraphicsCommandList> &commandList, const uint8_t* textureData, const size_t textureDataSize, Texture *texture)
 {
     ThrowIfFailed(DirectX::LoadWICTextureFromMemory(device.Get(), textureData, textureDataSize,
         texture->resource.GetAddressOf(), texture->decodedData, texture->subresource));
@@ -213,7 +216,7 @@ void BufferManager::loadImages(tinygltf::Model &model) {
 		this->images.push_back(texture);
 		uint8_t* imageData = &gltfBuffer.data[0] + bufferView.byteOffset;
 		size_t imageSize = bufferView.byteLength;
-		CreateTextureFromMemory(device, commandList, imageData, imageSize, this->images[i]);
+		createTextureFromMemory(device, commandList, imageData, imageSize, this->images[i]);
 	}
 }
 

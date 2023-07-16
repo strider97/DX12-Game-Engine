@@ -6,13 +6,13 @@ class DirectionLight {
 	DirectX::XMVECTOR color = { 1, 1, 1 };
 	DirectX::XMVECTOR position = { 0, 10, 0 };
 	DirectX::XMVECTOR UP = { 0, 1, 0 };
-	DirectX::XMVECTOR direction = { 0.6, -0.75f, -0.6 };
+	DirectX::XMVECTOR direction = { -0.6, -0.75f, -0.6 };
 public:
 	DirectX::XMMATRIX lightOrthoMatrix = DirectX::XMMatrixOrthographicOffCenterRH(
-		-12.f,
-		12.f,
-		-12.f,
-		12.f,
+		-15.f,
+		15.f,
+		-15.f,
+		15.f,
 		0.0f,
 		50.f
 	);

@@ -5,7 +5,7 @@
 #include "tiny_gltf.h"
 
 struct alignas(256) Material {
-	DirectX::XMFLOAT3 baseColor;
+	DirectX::XMFLOAT4 baseColor;
 	float roughness;
 };
 
@@ -64,6 +64,7 @@ public:
 	void loadMaterials(std::vector<tinygltf::Material> &materials);
 	void loadImages(std::vector<tinygltf::Image> &images);
 	std::vector<MeshPrimitive> meshPrimitives;
+	std::vector<MeshPrimitive> meshPrimitivesTransparent;
 	int heapDescriptorSize;
 	D3D12_GPU_VIRTUAL_ADDRESS getGpuVirtualAddressForMaterial(int index);
 	void loadImagesHeap(std::vector<tinygltf::Image> &images);

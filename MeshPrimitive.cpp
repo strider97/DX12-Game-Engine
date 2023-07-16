@@ -9,7 +9,7 @@ D3D12_VERTEX_BUFFER_VIEW getVertexBufferView(tinygltf::Accessor &accessor,
     UINT32 byteStride = accessor.ByteStride(bufferView);
     UINT32 byteOffset = bufferView.byteOffset + accessor.byteOffset;
     vertexBufferView.BufferLocation = gpuVirtualAddress + byteOffset;
-    vertexBufferView.SizeInBytes = byteStride * accessor.count;
+    vertexBufferView.SizeInBytes = bufferView.byteLength;
     vertexBufferView.StrideInBytes = byteStride;
 
     return vertexBufferView;

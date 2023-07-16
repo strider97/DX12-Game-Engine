@@ -324,6 +324,16 @@ void BasicGameEngine::LoadPipelineAssets()
         psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
         psoDesc.SampleDesc.Count = 1;
 
+        psoDesc.BlendState.RenderTarget[0].BlendEnable = true;
+        psoDesc.BlendState.RenderTarget[0].SrcBlend = D3D12_BLEND_SRC_ALPHA; // Source blending factor (e.g., source alpha)
+        psoDesc.BlendState.RenderTarget[0].DestBlend = D3D12_BLEND_INV_SRC_ALPHA; // Destination blending factor (e.g., (1 - source alpha))
+        psoDesc.BlendState.RenderTarget[0].BlendOp = D3D12_BLEND_OP_ADD; // Blending operation (e.g., addition)
+        psoDesc.BlendState.RenderTarget[0].SrcBlendAlpha = D3D12_BLEND_ONE; // Source alpha blending factor (e.g., 1)
+        psoDesc.BlendState.RenderTarget[0].DestBlendAlpha = D3D12_BLEND_ZERO; // Destination alpha blending factor (e.g., 0)
+        psoDesc.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD; // Alpha blending operation (e.g., addition)
+        psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL; // Write mask for color channels (e.g., RGBA)
+
+
         ThrowIfFailed(m_device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&m_pipelineState)));
 
         D3D12_GRAPHICS_PIPELINE_STATE_DESC shadowPipelineDesc = {};
@@ -441,7 +451,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/cammy.glb", model);
+    GLTF_Loader::loadGltf("./Models/old_vehicle.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -590,6 +600,26 @@ void BasicGameEngine::PopulateCommandList()
     m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     for (auto& meshPrimitive : bufferManager->meshPrimitives) {
+        D3D12_VERTEX_BUFFER_VIEW bufferViews[] = {
+            meshPrimitive.vbViewPosition,
+            meshPrimitive.vbViewNormal,
+            meshPrimitive.vbViewUV };
+        D3D12_GPU_VIRTUAL_ADDRESS materialHeapAddress = bufferManager->
+            getGpuVirtualAddressForMaterial(max(0, meshPrimitive.primitive.material));
+    
+        m_commandList->IASetVertexBuffers(0, 3, bufferViews);
+        m_commandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
+        m_commandList->SetGraphicsRootConstantBufferView(2, materialHeapAddress);
+        if(meshPrimitive.hasBaseColorTexture)
+            m_commandList->SetGraphicsRootDescriptorTable(3, meshPrimitive.baseColorTextureGpuhandle);
+        else {
+           m_commandList->SetGraphicsRootDescriptorTable(3, cbv_srv_handle);
+        }
+
+        m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
+    }
+
+    for (auto& meshPrimitive : bufferManager->meshPrimitivesTransparent) {
         D3D12_VERTEX_BUFFER_VIEW bufferViews[] = {
             meshPrimitive.vbViewPosition,
             meshPrimitive.vbViewNormal,

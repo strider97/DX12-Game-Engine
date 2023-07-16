@@ -19,7 +19,7 @@ cbuffer SceneConstantBuffer : register(b0)
 
 cbuffer MaterialBuffer : register(b1) 
 {
-    float3 baseColor;
+    float4 baseColor;
     float roughness;
 };
 
@@ -139,10 +139,15 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float ka = 0.2;
     float3 color = baseColor;//float3(255, 212, 128)/255;
     bool isMetal = false;
-    float lightIntensity = 1.2f;
+    float lightIntensity = 2.2f;
     float3 defaultColor = defaultAlbedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
-    float3 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
+    float4 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y));
     color = sRGB_FromLinear3(color);
+    float alpha = min(baseColor.a, texColor.a);
+    alpha = alpha * alpha;
+    // if(baseColor.a < 1.0)
+    //     discard;
+
     // texColor = sRGB_FromLinear3(texColor);
     // return float4(texColor, 1);
     // return float4(float3(getShadowMultiplier(vsOut.fragPosLightSpace), 0, 0), 1);
@@ -152,10 +157,10 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     // float3 h = normalize(l + v);
 
     float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
-    float3 diff = kd * saturate(dot(l, vsOut.normal)) * color * texColor;
-    float3 ambient = ka * color * texColor;
+    float3 diff = kd * saturate(dot(l, vsOut.normal)) * color * texColor.rgb;
+    float3 ambient = ka * color * texColor.rgb;
 
     float3 radiance = lightIntensity * shadowValue * diff + ambient;
 
-    return float4(radiance, 1);
+    return float4(radiance, alpha);
 }
