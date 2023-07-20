@@ -50,6 +50,7 @@ MeshPrimitive::MeshPrimitive(
     int positionIndex = primitive.attributes["POSITION"];
     int normalsIndex = primitive.attributes["NORMAL"];
     int uvIndex = primitive.attributes["TEXCOORD_0"];
+    int tangentIndex = primitive.attributes["TANGENT"];
 
     tinygltf::Accessor& accessor = accessors[positionIndex];
     tinygltf::BufferView& bufferView = bufferViews[accessor.bufferView];
@@ -73,6 +74,15 @@ MeshPrimitive::MeshPrimitive(
     bufferView = bufferViews[accessor.bufferView];
     vertexBuffer = buffers[bufferView.buffer];
     this->vbViewUV = getVertexBufferView(
+        accessor,
+        bufferView,
+        vertexBuffer.Get()->GetGPUVirtualAddress()
+    );
+
+    accessor = accessors[tangentIndex];
+    bufferView = bufferViews[accessor.bufferView];
+    vertexBuffer = buffers[bufferView.buffer];
+    this->vbViewTangent = getVertexBufferView(
         accessor,
         bufferView,
         vertexBuffer.Get()->GetGPUVirtualAddress()
@@ -109,7 +119,8 @@ void MeshPrimitive::loadTextureHeaps(
     ComPtr<ID3D12Device> &device,
     int heapDescriptorSize,
     std::vector<tinygltf::Texture> &gltfTextures,
-    Texture* defaultTexture)
+    Texture* defaultTexture,
+    Texture* defaultNormalMap)
 {
     int albedoTexture = material.pbrMetallicRoughness.baseColorTexture.index;
     int normalMapTexture = material.normalTexture.index;
@@ -132,6 +143,12 @@ void MeshPrimitive::loadTextureHeaps(
             loadTextureHeap(image, device, hDescriptor);
         }
         hDescriptor.Offset(heapDescriptorSize);
+    }
+
+    if(normalMapTexture == -1) {
+        CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(texturesHeap -> GetCPUDescriptorHandleForHeapStart());
+        hDescriptor.Offset(heapDescriptorSize);
+        loadTextureHeap(defaultNormalMap->resource, device, hDescriptor);
     }
 
 }

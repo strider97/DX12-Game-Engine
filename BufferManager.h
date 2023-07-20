@@ -7,6 +7,7 @@
 struct alignas(256) MaterialProperties {
 	DirectX::XMFLOAT4 baseColor;
 	float roughness;
+	float metallic;
 };
 
 struct Texture
@@ -39,6 +40,7 @@ public:
 	D3D12_VERTEX_BUFFER_VIEW vbViewPosition;
 	D3D12_VERTEX_BUFFER_VIEW vbViewNormal;
 	D3D12_VERTEX_BUFFER_VIEW vbViewUV;
+	D3D12_VERTEX_BUFFER_VIEW vbViewTangent;
 	CD3DX12_CPU_DESCRIPTOR_HANDLE materialHeapCpuhandle;
 	CD3DX12_GPU_DESCRIPTOR_HANDLE materialHeapGpuhandle;
 
@@ -51,7 +53,8 @@ public:
 		ComPtr<ID3D12Device> &device,
 		int heapDescriptorSize,
     	std::vector<tinygltf::Texture> &textures,
-		Texture* defaultTexture);
+		Texture* defaultTexture,
+    	Texture* defaultNormalMap);
 
 private:
 };
@@ -76,6 +79,7 @@ public:
 	ComPtr<ID3D12DescriptorHeap> imagesHeap;
 	std::vector<ComPtr<ID3D12Resource>> imageBuffers;
 	Texture* defaultTexture;
+	Texture* defaultNormalMap;
 
 private:
 	std::vector<ComPtr<ID3D12Resource>> buffers;

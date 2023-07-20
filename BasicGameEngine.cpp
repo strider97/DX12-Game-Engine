@@ -249,8 +249,9 @@ void BasicGameEngine::LoadPipelineAssets()
         D3D12_INPUT_ELEMENT_DESC inputElementDescs[] =
         {
             { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "NORMAL", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-            { "UV", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+            { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 1, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            { "UV", 0, DXGI_FORMAT_R32G32_FLOAT, 2, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+            { "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 3, 0, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
         };
 
         D3D12_RASTERIZER_DESC rasterizerDesc;
@@ -451,7 +452,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/taxi.glb", model);
+    GLTF_Loader::loadGltf("./Models/skateboard.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -537,10 +538,8 @@ void BasicGameEngine::drawShadowMap() {
 
     for (auto& meshPrimitive : bufferManager->meshPrimitives) {
         D3D12_VERTEX_BUFFER_VIEW bufferViews[] = {
-            meshPrimitive.vbViewPosition, 
-            meshPrimitive.vbViewNormal, 
-            meshPrimitive.vbViewUV };
-        m_ShadowCommandList->IASetVertexBuffers(0, 3, bufferViews);
+            meshPrimitive.vbViewPosition};
+        m_ShadowCommandList->IASetVertexBuffers(0, 1, bufferViews);
         m_ShadowCommandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
         m_ShadowCommandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
     }
@@ -603,31 +602,12 @@ void BasicGameEngine::PopulateCommandList()
         D3D12_VERTEX_BUFFER_VIEW bufferViews[] = {
             meshPrimitive.vbViewPosition,
             meshPrimitive.vbViewNormal,
-            meshPrimitive.vbViewUV };
+            meshPrimitive.vbViewUV,
+            meshPrimitive.vbViewTangent };
         D3D12_GPU_VIRTUAL_ADDRESS materialHeapAddress = bufferManager->
             getGpuVirtualAddressForMaterial(max(0, meshPrimitive.primitive.material));
     
-        m_commandList->IASetVertexBuffers(0, 3, bufferViews);
-        m_commandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
-        m_commandList->SetGraphicsRootConstantBufferView(2, materialHeapAddress);
-        // if(meshPrimitive.hasBaseColorTexture)
-            m_commandList->SetGraphicsRootDescriptorTable(3, meshPrimitive.texturesHeap.Get()->GetGPUDescriptorHandleForHeapStart());
-        // else {
-        //    m_commandList->SetGraphicsRootDescriptorTable(3, cbv_srv_handle);
-        // }
-
-        m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
-    }
-
-    for (auto& meshPrimitive : bufferManager->meshPrimitivesTransparent) {
-        D3D12_VERTEX_BUFFER_VIEW bufferViews[] = {
-            meshPrimitive.vbViewPosition,
-            meshPrimitive.vbViewNormal,
-            meshPrimitive.vbViewUV };
-        D3D12_GPU_VIRTUAL_ADDRESS materialHeapAddress = bufferManager->
-            getGpuVirtualAddressForMaterial(max(0, meshPrimitive.primitive.material));
-    
-        m_commandList->IASetVertexBuffers(0, 3, bufferViews);
+        m_commandList->IASetVertexBuffers(0, 4, bufferViews);
         m_commandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
         m_commandList->SetGraphicsRootConstantBufferView(2, materialHeapAddress);
         // if(meshPrimitive.hasBaseColorTexture)

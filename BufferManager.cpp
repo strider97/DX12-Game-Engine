@@ -58,6 +58,7 @@ void BufferManager::loadMaterials(std::vector<tinygltf::Material> &gltfMaterials
 		material.roughness = gltfMat.pbrMetallicRoughness.roughnessFactor;
 		auto &color = gltfMat.pbrMetallicRoughness.baseColorFactor;
 		material.baseColor = { (float)color[0], (float)color[1], (float)color[2], (float) color[3] };
+		material.metallic = gltfMat.pbrMetallicRoughness.metallicFactor;
 		materials.push_back(material);
 	}
 
@@ -113,7 +114,7 @@ void BufferManager::loadBufferViews(tinygltf::Model &model)
 			handleGpu.Offset(primitive.material, heapDescriptorSize);
 
 			MeshPrimitive meshPrimitive (buffers, primitive, model, handleCpu, handleGpu);
-			meshPrimitive.loadTextureHeaps(images, device, heapDescriptorSize, model.textures, defaultTexture);
+			meshPrimitive.loadTextureHeaps(images, device, heapDescriptorSize, model.textures, defaultTexture, defaultNormalMap);
 
 			if(meshPrimitive.material.alphaMode != "OPAQUE")
 				meshPrimitivesTransparent.push_back(meshPrimitive);
@@ -121,6 +122,8 @@ void BufferManager::loadBufferViews(tinygltf::Model &model)
 				meshPrimitives.push_back(meshPrimitive);
 		}
 	}
+	meshPrimitives.insert(meshPrimitives.end(), 
+	meshPrimitivesTransparent.begin(), meshPrimitivesTransparent.end());
 }
 
 
@@ -228,6 +231,9 @@ void BufferManager::loadImages(tinygltf::Model &model) {
 	}
 	defaultTexture = new Texture(L"./Textures/white.png");
 	loadTextureFromFile(device, commandList, defaultTexture);
+	
+	defaultNormalMap = new Texture(L"./Textures/default-normal.png");
+	loadTextureFromFile(device, commandList, defaultNormalMap);
 }
 
 
