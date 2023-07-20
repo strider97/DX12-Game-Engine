@@ -41,8 +41,10 @@ struct PSInput
 };
 
 Texture2D shadowMapTexture : register(t0);
-Texture2D defaultAlbedoTexture : register(t1);
 Texture2D albedoTexture : register(t1);
+Texture2D normalTexture : register(t2);
+Texture2D metallicRoughnessTexture : register(t3);
+Texture2D occlusionTexture : register(t4);
 SamplerState g_sampler : register(s0);
 
 PSInput VSMain(VSInput vInput)
@@ -140,27 +142,32 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float3 color = baseColor;//float3(255, 212, 128)/255;
     bool isMetal = false;
     float lightIntensity = 2.2f;
-    float3 defaultColor = defaultAlbedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
     float4 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y));
+    float3 normals = normalTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
+    float metallic = metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).b;
+    float roughness = metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).g;
+    float occlusion = metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).r;
+
     color = sRGB_FromLinear3(color);
     float alpha = min(baseColor.a, texColor.a);
     alpha = alpha * alpha;
     // if(baseColor.a < 1.0)
     //     discard;
 
-    // texColor = sRGB_FromLinear3(texColor);
-    // return float4(texColor, 1);
-    // return float4(float3(getShadowMultiplier(vsOut.fragPosLightSpace), 0, 0), 1);
+    // return float4(normals, 1);
+    // return float4(occlusion, 0, 0, 1);
 
     float3 l = lightDir;
-    // float3 v = normalize(vsOut.eye - vsOut.worldPos);
-    // float3 h = normalize(l + v);
+    float3 v = normalize(vsOut.eye - vsOut.worldPos);
+    float3 h = normalize(l + v);
 
     float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
     float3 diff = kd * saturate(dot(l, vsOut.normal)) * color * texColor.rgb;
+    float3 spec = ks * pow(saturate(dot(vsOut.normal, h)), 90) ;
     float3 ambient = ka * color * texColor.rgb;
 
-    float3 radiance = lightIntensity * shadowValue * diff + ambient;
+    float3 radiance = lightIntensity * shadowValue * (diff + spec) + ambient;
+    radiance *= occlusion;
 
     return float4(radiance, alpha);
 }

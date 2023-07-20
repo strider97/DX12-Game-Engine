@@ -179,7 +179,7 @@ void BasicGameEngine::LoadPipelineAssets()
         ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
         rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_PIXEL);
 
-        ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 1);
+        ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 1);
         rootParameters[3].InitAsDescriptorTable(1, &ranges[2], D3D12_SHADER_VISIBILITY_PIXEL);
 
         shadowRootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
@@ -451,7 +451,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/old_vehicle.glb", model);
+    GLTF_Loader::loadGltf("./Models/taxi.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -574,7 +574,7 @@ void BasicGameEngine::PopulateCommandList()
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
 
     ID3D12DescriptorHeap* ppHeaps[] = { m_cbvHeap.Get() };
-    m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+    // m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     CD3DX12_GPU_DESCRIPTOR_HANDLE cbv_srv_handle(m_cbvHeap->GetGPUDescriptorHandleForHeapStart());
     m_commandList->SetGraphicsRootDescriptorTable(0, cbv_srv_handle);
@@ -610,11 +610,11 @@ void BasicGameEngine::PopulateCommandList()
         m_commandList->IASetVertexBuffers(0, 3, bufferViews);
         m_commandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
         m_commandList->SetGraphicsRootConstantBufferView(2, materialHeapAddress);
-        if(meshPrimitive.hasBaseColorTexture)
-            m_commandList->SetGraphicsRootDescriptorTable(3, meshPrimitive.baseColorTextureGpuhandle);
-        else {
-           m_commandList->SetGraphicsRootDescriptorTable(3, cbv_srv_handle);
-        }
+        // if(meshPrimitive.hasBaseColorTexture)
+            m_commandList->SetGraphicsRootDescriptorTable(3, meshPrimitive.texturesHeap.Get()->GetGPUDescriptorHandleForHeapStart());
+        // else {
+        //    m_commandList->SetGraphicsRootDescriptorTable(3, cbv_srv_handle);
+        // }
 
         m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
     }
@@ -630,11 +630,11 @@ void BasicGameEngine::PopulateCommandList()
         m_commandList->IASetVertexBuffers(0, 3, bufferViews);
         m_commandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
         m_commandList->SetGraphicsRootConstantBufferView(2, materialHeapAddress);
-        if(meshPrimitive.hasBaseColorTexture)
-            m_commandList->SetGraphicsRootDescriptorTable(3, meshPrimitive.baseColorTextureGpuhandle);
-        else {
-           m_commandList->SetGraphicsRootDescriptorTable(3, cbv_srv_handle);
-        }
+        // if(meshPrimitive.hasBaseColorTexture)
+            m_commandList->SetGraphicsRootDescriptorTable(3, meshPrimitive.texturesHeap.Get()->GetGPUDescriptorHandleForHeapStart());
+        // else {
+        //    m_commandList->SetGraphicsRootDescriptorTable(3, cbv_srv_handle);
+        // }
 
         m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
     }

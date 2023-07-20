@@ -51,17 +51,17 @@ void BufferManager::loadBuffers(std::vector<tinygltf::Buffer> &buffers) {
 }
 
 void BufferManager::loadMaterials(std::vector<tinygltf::Material> &gltfMaterials) {
-	std::vector<Material> materials;
+	std::vector<MaterialProperties> materials;
 	for (int i = 0; i<gltfMaterials.size(); i++) {
 		auto& gltfMat = gltfMaterials[i];
-		Material material;
+		MaterialProperties material;
 		material.roughness = gltfMat.pbrMetallicRoughness.roughnessFactor;
 		auto &color = gltfMat.pbrMetallicRoughness.baseColorFactor;
 		material.baseColor = { (float)color[0], (float)color[1], (float)color[2], (float) color[3] };
 		materials.push_back(material);
 	}
 
-	int bufferSize = sizeof(Material) * materials.size();
+	int bufferSize = sizeof(MaterialProperties) * materials.size();
 	device->CreateCommittedResource(
 		&CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
 		D3D12_HEAP_FLAG_NONE,
@@ -111,21 +111,10 @@ void BufferManager::loadBufferViews(tinygltf::Model &model)
 			handleCpu.Offset(primitive.material, heapDescriptorSize);
 			CD3DX12_GPU_DESCRIPTOR_HANDLE handleGpu = CD3DX12_GPU_DESCRIPTOR_HANDLE(materialHeap.Get()->GetGPUDescriptorHandleForHeapStart());
 			handleGpu.Offset(primitive.material, heapDescriptorSize);
-			
-			CD3DX12_CPU_DESCRIPTOR_HANDLE imageHandleCpu = handleCpu;
-			CD3DX12_GPU_DESCRIPTOR_HANDLE imageHandleGpu = handleGpu;
-			auto &material = model.materials[primitive.material];
-			int textureIndex = material.pbrMetallicRoughness.baseColorTexture.index;
-			if(textureIndex >= 0) {
-				auto& texture = model.textures[textureIndex];
-				int imageIndex = texture.source;
-				imageHandleCpu = CD3DX12_CPU_DESCRIPTOR_HANDLE(imagesHeap.Get()->GetCPUDescriptorHandleForHeapStart());
-				imageHandleCpu.Offset(imageIndex, heapDescriptorSize);
-				imageHandleGpu = CD3DX12_GPU_DESCRIPTOR_HANDLE(imagesHeap.Get()->GetGPUDescriptorHandleForHeapStart());
-				imageHandleGpu.Offset(imageIndex, heapDescriptorSize);
-			}
 
-			MeshPrimitive meshPrimitive (buffers, primitive, model, handleCpu, handleGpu, imageHandleCpu, imageHandleGpu);
+			MeshPrimitive meshPrimitive (buffers, primitive, model, handleCpu, handleGpu);
+			meshPrimitive.loadTextureHeaps(images, device, heapDescriptorSize, model.textures, defaultTexture);
+
 			if(meshPrimitive.material.alphaMode != "OPAQUE")
 				meshPrimitivesTransparent.push_back(meshPrimitive);
 			else
@@ -137,7 +126,7 @@ void BufferManager::loadBufferViews(tinygltf::Model &model)
 
 D3D12_GPU_VIRTUAL_ADDRESS BufferManager::getGpuVirtualAddressForMaterial(int index) {
 	D3D12_GPU_VIRTUAL_ADDRESS address = materialBuffer.Get()->GetGPUVirtualAddress();
-	address += index * sizeof(Material);
+	address += index * sizeof(MaterialProperties);
 	return address;
 }
 
@@ -205,6 +194,25 @@ void createTextureFromMemory(ComPtr<ID3D12Device> &device, ComPtr<ID3D12Graphics
     commandList->ResourceBarrier(1, &barrier);
 }
 
+void loadTextureFromFile(ComPtr<ID3D12Device> &m_device, 
+ComPtr<ID3D12GraphicsCommandList> &commandList, Texture *texture) {
+    ThrowIfFailed(DirectX::LoadWICTextureFromFile(m_device.Get(), texture->filename.c_str(),
+        texture->resource.GetAddressOf(), texture->decodedData, texture->subresource));
+
+    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture->resource.Get(), 0, 1);
+    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
+    auto desc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
+
+    ThrowIfFailed(m_device->CreateCommittedResource(
+        &heapProps, D3D12_HEAP_FLAG_NONE, &desc,
+        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(texture->uploadHeap.GetAddressOf())
+    ));
+
+    UpdateSubresources(commandList.Get(), texture->resource.Get(), texture->uploadHeap.Get(), 0, 0, 1, &texture->subresource);
+    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(texture->resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    commandList->ResourceBarrier(1, &barrier);
+}
+
 void BufferManager::loadImages(tinygltf::Model &model) {
 	auto &images = model.images;
 	for (int i = 0; i<images.size(); i++) {
@@ -218,6 +226,8 @@ void BufferManager::loadImages(tinygltf::Model &model) {
 		size_t imageSize = bufferView.byteLength;
 		createTextureFromMemory(device, commandList, imageData, imageSize, this->images[i]);
 	}
+	defaultTexture = new Texture(L"./Textures/white.png");
+	loadTextureFromFile(device, commandList, defaultTexture);
 }
 
 
