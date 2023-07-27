@@ -57,9 +57,6 @@
     <ClInclude Include="tiny_gltf.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="GltfLoader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="json.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -69,6 +66,11 @@
     <ClInclude Include="stb_image_write.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="BufferManager.h" />
+    <ClInclude Include="GLTF_Loader.h" />
+    <ClInclude Include="ComputePipeline.h" />
+    <ClInclude Include="CheckerBoardPipeline.h" />
+    <ClInclude Include="Skybox.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -98,9 +100,21 @@
     <ClCompile Include="DirectionLight.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="BufferManager.cpp" />
+    <ClCompile Include="GLTF_Loader.cpp" />
+    <ClCompile Include="MeshPrimitive.cpp" />
+    <ClCompile Include="ComputePipeline.cpp" />
+    <ClCompile Include="CheckerBoardPipeline.cpp" />
+    <ClCompile Include="Skybox.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="ComputeShader.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="brdfCompute.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
   </ItemGroup>

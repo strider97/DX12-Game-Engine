@@ -126,15 +126,16 @@ void MeshPrimitive::loadTextureHeaps(
     int normalMapTexture = material.normalTexture.index;
     int metallicRoughnessTexture = material.pbrMetallicRoughness.metallicRoughnessTexture.index;
     int occlussionIndex = material.occlusionTexture.index;
+    int emissiveIndex = material.emissiveTexture.index;
 
     D3D12_DESCRIPTOR_HEAP_DESC texturesHeapDesc = {};
-    texturesHeapDesc.NumDescriptors = 4;
+    texturesHeapDesc.NumDescriptors = 5;
     texturesHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
     texturesHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
     ThrowIfFailed(device->CreateDescriptorHeap(&texturesHeapDesc, IID_PPV_ARGS(&texturesHeap)));
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(texturesHeap -> GetCPUDescriptorHandleForHeapStart());
-    std::vector<int> textureIndices = {albedoTexture, normalMapTexture, metallicRoughnessTexture, occlussionIndex };
+    std::vector<int> textureIndices = {albedoTexture, normalMapTexture, metallicRoughnessTexture, occlussionIndex, emissiveIndex };
     for (int textureIndex : textureIndices) {
         if(textureIndex == -1) {
             loadTextureHeap(defaultTexture->resource, device, hDescriptor);

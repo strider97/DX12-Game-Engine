@@ -364,3 +364,6 @@ FodyWeavers.xsd
 
 # 3D models
 Models/
+
+#Textures
+Textures/

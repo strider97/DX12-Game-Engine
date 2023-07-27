@@ -33,7 +33,25 @@ void BasicGameEngine::OnInit()
     LoadPipelineAssets();
     loadModels();
 
-    loadTextureFromFile(new Texture(L"./Textures/white.png"));
+    ThrowIfFailed(m_commandList->Close());
+    ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+    m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
+    WaitForPreviousFrame();
+
+    checkerboardPipeline = new CheckerBoardPipeline(
+        GetAssetFullPath(L"ComputeShader.hlsl").c_str(), "CSLut", m_device, m_computeCommandAllocator);
+    checkerboardPipeline->loadPipeline();
+    checkerboardPipeline->executeTasks();
+
+    ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fenceCompute)));
+    m_fenceValueCompute = 1;
+    m_fenceEventCompute = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+    ThrowIfFailed(checkerboardPipeline->commandList->Close());
+    ID3D12CommandList* computeCommandLists[] = { checkerboardPipeline->commandList.Get() };
+    computeCommandQueue->ExecuteCommandLists(_countof(computeCommandLists), computeCommandLists);
+
+    WaitForComputeTask();
 }
 
 // Load the rendering pipeline dependencies.
@@ -86,8 +104,12 @@ void BasicGameEngine::LoadPipeline()
     D3D12_COMMAND_QUEUE_DESC queueDesc = {};
     queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
     queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-
     ThrowIfFailed(m_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_commandQueue)));
+    
+    D3D12_COMMAND_QUEUE_DESC queueDescCompute = {};
+    queueDescCompute.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+    queueDescCompute.Type = D3D12_COMMAND_LIST_TYPE_COMPUTE;
+    ThrowIfFailed(m_device->CreateCommandQueue(&queueDescCompute, IID_PPV_ARGS(&computeCommandQueue)));
 
     // Describe and create the swap chain.
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
@@ -151,6 +173,7 @@ void BasicGameEngine::LoadPipeline()
     }
 
     ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
+    ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&m_computeCommandAllocator)));
 }
 
 // Load the sample assets.
@@ -168,8 +191,8 @@ void BasicGameEngine::LoadPipelineAssets()
             featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
         }
 
-        CD3DX12_DESCRIPTOR_RANGE1 ranges[3];
-        CD3DX12_ROOT_PARAMETER1 rootParameters[4];
+        CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
+        CD3DX12_ROOT_PARAMETER1 rootParameters[5];
         CD3DX12_ROOT_PARAMETER1 shadowRootParameters[1];
 
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
@@ -179,8 +202,11 @@ void BasicGameEngine::LoadPipelineAssets()
         ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
         rootParameters[1].InitAsDescriptorTable(1, &ranges[1], D3D12_SHADER_VISIBILITY_PIXEL);
 
-        ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 4, 1);
+        ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 5, 1);
         rootParameters[3].InitAsDescriptorTable(1, &ranges[2], D3D12_SHADER_VISIBILITY_PIXEL);
+
+        ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 6);
+        rootParameters[4].InitAsDescriptorTable(1, &ranges[3], D3D12_SHADER_VISIBILITY_PIXEL);
 
         shadowRootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
 
@@ -452,7 +478,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/skateboard.glb", model);
+    GLTF_Loader::loadGltf("./Models/taxi.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -579,7 +605,8 @@ void BasicGameEngine::PopulateCommandList()
     m_commandList->SetGraphicsRootDescriptorTable(0, cbv_srv_handle);
     cbv_srv_handle.Offset(1, m_cbvHeapDescriptorSize);
     m_commandList->SetGraphicsRootDescriptorTable(1, cbv_srv_handle);
-    cbv_srv_handle.Offset(1, m_cbvHeapDescriptorSize);
+    m_commandList->SetGraphicsRootDescriptorTable(4, checkerboardPipeline->textureGpuHandle);
+
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);
     m_commandList->ClearDepthStencilView(m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), 
@@ -594,7 +621,7 @@ void BasicGameEngine::PopulateCommandList()
     m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
 
     // Record commands.
-    const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
+    const float clearColor[] = { 0.1f, 0.1f, 0.1f, 1.0f };
     m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
     m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
@@ -610,12 +637,8 @@ void BasicGameEngine::PopulateCommandList()
         m_commandList->IASetVertexBuffers(0, 4, bufferViews);
         m_commandList->IASetIndexBuffer(&meshPrimitive.indexBufferView);
         m_commandList->SetGraphicsRootConstantBufferView(2, materialHeapAddress);
-        // if(meshPrimitive.hasBaseColorTexture)
-            m_commandList->SetGraphicsRootDescriptorTable(3, meshPrimitive.texturesHeap.Get()->GetGPUDescriptorHandleForHeapStart());
-        // else {
-        //    m_commandList->SetGraphicsRootDescriptorTable(3, cbv_srv_handle);
-        // }
-
+        m_commandList->SetGraphicsRootDescriptorTable(3, meshPrimitive.texturesHeap.Get()->GetGPUDescriptorHandleForHeapStart());
+        
         m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
     }
 
@@ -645,6 +668,26 @@ void BasicGameEngine::WaitForPreviousFrame()
     }
 
     m_frameIndex = m_swapChain->GetCurrentBackBufferIndex();
+}
+
+void BasicGameEngine::WaitForComputeTask()
+{
+    // WAITING FOR THE FRAME TO COMPLETE BEFORE CONTINUING IS NOT BEST PRACTICE.
+    // This is code implemented as such for simplicity. The D3D12HelloFrameBuffering
+    // sample illustrates how to use fences for efficient resource usage and to
+    // maximize GPU utilization.
+
+    // Signal and increment the fence value.
+    const UINT64 fence = m_fenceValueCompute;
+    ThrowIfFailed(computeCommandQueue->Signal(m_fenceCompute.Get(), fence));
+    m_fenceValueCompute++;
+
+    // Wait until the previous frame is finished.
+    if (m_fenceCompute->GetCompletedValue() < fence)
+    {
+        ThrowIfFailed(m_fenceCompute->SetEventOnCompletion(fence, m_fenceEventCompute));
+        WaitForSingleObject(m_fenceEventCompute, INFINITE);
+    }
 }
 
 void BasicGameEngine::updateTime() {
@@ -755,121 +798,4 @@ void BasicGameEngine::OnMouseLeave() {
     m_mouseX = -1;
     m_mouseY = -1;
     m_mouseClicked = false;
-}
-
-void BasicGameEngine::createTexture2D(int width, int height, ComPtr<ID3D12Resource> texture ) {
-    D3D12_RESOURCE_DESC textureDesc = {};
-    textureDesc.MipLevels = 1;
-    textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    textureDesc.Width = width;
-    textureDesc.Height = height;
-    textureDesc.Flags = D3D12_RESOURCE_FLAG_NONE;
-    textureDesc.DepthOrArraySize = 1;
-    textureDesc.SampleDesc.Count = 1;
-    textureDesc.SampleDesc.Quality = 0;
-    textureDesc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-
-    ThrowIfFailed(m_device->CreateCommittedResource(
-        &CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT),
-        D3D12_HEAP_FLAG_NONE,
-        &textureDesc,
-        D3D12_RESOURCE_STATE_COPY_DEST,
-        nullptr,
-        IID_PPV_ARGS(&texture)));
-}
-
-std::vector<UINT8> GenerateTextureData(int TextureWidth, int TexturePixelSize)
-{
-    const UINT rowPitch = TextureWidth * TexturePixelSize;
-    const UINT cellPitch = rowPitch >> 3;        // The width of a cell in the checkboard texture->
-    const UINT cellHeight = TextureWidth >> 3;    // The height of a cell in the checkerboard texture->
-    const UINT textureSize = rowPitch * TextureWidth;
-
-    std::vector<UINT8> data(textureSize);
-    UINT8* pData = &data[0];
-
-    for (UINT n = 0; n < textureSize; n += TexturePixelSize)
-    {
-        UINT x = n % rowPitch;
-        UINT y = n / rowPitch;
-        UINT i = x / cellPitch;
-        UINT j = y / cellHeight;
-
-        if (i % 2 == j % 2)
-        {
-            pData[n] = 0x00;        // R
-            pData[n + 1] = 0x00;    // G
-            pData[n + 2] = 0x00;    // B
-            pData[n + 3] = 0xff;    // A
-        }
-        else
-        {
-            pData[n] = 0xff;        // R
-            pData[n + 1] = 0xff;    // G
-            pData[n + 2] = 0xff;    // B
-            pData[n + 3] = 0xff;    // A
-        }
-    }
-
-    return data;
-}
-
-
-void BasicGameEngine::loadTextureFromFile(Texture* texture) {
-    ThrowIfFailed(DirectX::LoadWICTextureFromFile(m_device.Get(), texture->filename.c_str(),
-        texture->resource.GetAddressOf(), texture->decodedData, texture->subresource));
-
-    const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture->resource.Get(), 0, 1);
-    CD3DX12_HEAP_PROPERTIES heapProps(D3D12_HEAP_TYPE_UPLOAD);
-    auto desc = CD3DX12_RESOURCE_DESC::Buffer(uploadBufferSize);
-
-    ThrowIfFailed(m_device->CreateCommittedResource(
-        &heapProps, D3D12_HEAP_FLAG_NONE, &desc,
-        D3D12_RESOURCE_STATE_GENERIC_READ, nullptr, IID_PPV_ARGS(texture->uploadHeap.GetAddressOf())
-    ));
-
-    UpdateSubresources(m_commandList.Get(), texture->resource.Get(), texture->uploadHeap.Get(), 0, 0, 1, &texture->subresource);
-    auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(texture->resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-    m_commandList->ResourceBarrier(1, &barrier);
-    
-
-    ThrowIfFailed(m_commandList->Close());
-    ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-    m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-
-
-    // Create synchronization objects and wait until assets have been uploaded to the GPU.
-    {
-        ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fence)));
-        m_fenceValue = 1;
-
-        // Create an event handle to use for frame synchronization.
-        m_fenceEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-        if (m_fenceEvent == nullptr)
-        {
-            ThrowIfFailed(HRESULT_FROM_WIN32(GetLastError()));
-        }
-
-        // Wait for the command list to execute; we are reusing the same command 
-        // list in our main loop but for now, we just want to wait for setup to 
-        // complete before continuing.
-        WaitForPreviousFrame();
-    }
-
-    loadSrvHeapResources(texture);
-}
-
-void BasicGameEngine::loadSrvHeapResources(Texture* texture) {
-    CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(
-        m_cbvHeap -> GetCPUDescriptorHandleForHeapStart());
-    hDescriptor.Offset(2, m_cbvHeapDescriptorSize);
-    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
-    srvDesc.Format = texture->resource -> GetDesc().Format;
-    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-    srvDesc.Texture2D.MipLevels = texture->resource -> GetDesc().MipLevels;
-    srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-    m_device->CreateShaderResourceView(texture->resource.Get(), &srvDesc, hDescriptor);
-
 }

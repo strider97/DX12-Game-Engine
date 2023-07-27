@@ -57,8 +57,10 @@ void BufferManager::loadMaterials(std::vector<tinygltf::Material> &gltfMaterials
 		MaterialProperties material;
 		material.roughness = gltfMat.pbrMetallicRoughness.roughnessFactor;
 		auto &color = gltfMat.pbrMetallicRoughness.baseColorFactor;
+		auto &emission = gltfMat.emissiveFactor;
 		material.baseColor = { (float)color[0], (float)color[1], (float)color[2], (float) color[3] };
 		material.metallic = gltfMat.pbrMetallicRoughness.metallicFactor;
+		material.emission = { (float)emission[0], (float)emission[1], (float)emission[2] };
 		materials.push_back(material);
 	}
 
@@ -179,8 +181,30 @@ void BufferManager::loadImages2(tinygltf::Model &model) {
 
 
 void createTextureFromMemory(ComPtr<ID3D12Device> &device, ComPtr<ID3D12GraphicsCommandList> &commandList, const uint8_t* textureData, const size_t textureDataSize, Texture *texture)
-{
-    ThrowIfFailed(DirectX::LoadWICTextureFromMemory(device.Get(), textureData, textureDataSize,
+{	
+
+	/*
+	HRESULT DirectX::LoadWICTextureFromMemoryEx(
+    ID3D12Device* d3dDevice,
+    const uint8_t* wicData,
+    size_t wicDataSize,
+    size_t maxsize,
+    D3D12_RESOURCE_FLAGS resFlags,
+    WIC_LOADER_FLAGS loadFlags,
+    ID3D12Resource** texture,
+    std::unique_ptr<uint8_t[]>& decodedData,
+    D3D12_SUBRESOURCE_DATA& subresource) noexcept
+
+	ID3D12Device* d3dDevice,
+    const uint8_t* wicData,
+    size_t wicDataSize,
+    ID3D12Resource** texture,
+    std::unique_ptr<uint8_t[]>& decodedData,
+    D3D12_SUBRESOURCE_DATA& subresource,
+    size_t maxsize) noexcept
+	*/
+    ThrowIfFailed(DirectX::LoadWICTextureFromMemoryEx(device.Get(), textureData, textureDataSize,
+		0Ui64, D3D12_RESOURCE_FLAG_NONE, DirectX::WIC_LOADER_IGNORE_SRGB,
         texture->resource.GetAddressOf(), texture->decodedData, texture->subresource));
 
     const UINT64 uploadBufferSize = GetRequiredIntermediateSize(texture->resource.Get(), 0, 1);
@@ -229,7 +253,7 @@ void BufferManager::loadImages(tinygltf::Model &model) {
 		size_t imageSize = bufferView.byteLength;
 		createTextureFromMemory(device, commandList, imageData, imageSize, this->images[i]);
 	}
-	defaultTexture = new Texture(L"./Textures/white.png");
+	defaultTexture = new Texture(L"./Textures/spree_bank_2k.tiff");
 	loadTextureFromFile(device, commandList, defaultTexture);
 	
 	defaultNormalMap = new Texture(L"./Textures/default-normal.png");
@@ -262,7 +286,7 @@ void BufferManager::loadImagesHeap(std::vector<tinygltf::Image> &gltfImages) {
 		imageDesc.Texture2D.MostDetailedMip = 0;
 		imageDesc.Texture2D.MipLevels = image.Get() -> GetDesc().MipLevels;
 		imageDesc.Texture2D.ResourceMinLODClamp = 0.0f;
-		device->CreateShaderResourceView(image.Get(), &imageDesc, hDescriptor);
+			device->CreateShaderResourceView(image.Get(), &imageDesc, hDescriptor);
 		hDescriptor.Offset(heapDescriptorSize);
 	}
 }

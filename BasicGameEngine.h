@@ -19,6 +19,7 @@
 #include "GLTF_Loader.h"
 #include "tiny_gltf.h"
 #include "BufferManager.h"
+#include "CheckerBoardPipeline.h"
 
 using namespace DirectX;
 
@@ -90,7 +91,9 @@ private:
     ComPtr<ID3D12Device> m_device;
     ComPtr<ID3D12Resource> m_renderTargets[FrameCount];
     ComPtr<ID3D12CommandAllocator> m_commandAllocator;
+    ComPtr<ID3D12CommandAllocator> m_computeCommandAllocator;
     ComPtr<ID3D12CommandQueue> m_commandQueue;
+    ComPtr<ID3D12CommandQueue> computeCommandQueue;
     ComPtr<ID3D12RootSignature> m_rootSignature;
     ComPtr<ID3D12RootSignature> shadowRootSignature;
     ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
@@ -126,6 +129,7 @@ private:
     bool m_mouseClicked = false;
     std::vector<Vertex> m_vertices;
     Texture* sometexture;
+    CheckerBoardPipeline* checkerboardPipeline;
 
     DirectX::XMMATRIX m_projectionMatrix = XMMatrixPerspectiveFovRH(XMConvertToRadians(m_FoV), 16.0/9, 0.1f, 100.0f);
     Camera m_camera = Camera();
@@ -139,11 +143,15 @@ private:
     HANDLE m_fenceEvent;
     ComPtr<ID3D12Fence> m_fence;
     UINT64 m_fenceValue;
+    HANDLE m_fenceEventCompute;
+    ComPtr<ID3D12Fence> m_fenceCompute;
+    UINT64 m_fenceValueCompute;
 
     void LoadPipeline();
     void LoadPipelineAssets();
     void PopulateCommandList();
     void WaitForPreviousFrame();
+    void WaitForComputeTask();
     void updateTime();
     void updateCamera();
     void loadObjects();

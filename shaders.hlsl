@@ -22,6 +22,7 @@ cbuffer MaterialBuffer : register(b1)
     float4 baseColor;
     float roughness0;
     float metallic0;
+    float3 emission0;
 };
 
 struct VSInput
@@ -49,6 +50,8 @@ Texture2D albedoTexture : register(t1);
 Texture2D normalTexture : register(t2);
 Texture2D metallicRoughnessTexture : register(t3);
 Texture2D occlusionTexture : register(t4);
+Texture2D emissiveTexture : register(t5);
+Texture2D checkerBoardTexture : register(t6);
 SamplerState g_sampler : register(s0);
 
 PSInput VSMain(VSInput vInput)
@@ -184,30 +187,34 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float ka = 0.2;
     float3 color = baseColor;//float3(255, 212, 128)/255;
     bool isMetal = false;
-    float lightIntensity = 2.2f;
+    float lightIntensity = 2.5f;
     float4 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y));
     float3 normals = normalTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
     float metallic = metallic0 * metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).b;
     float roughness = roughness0 * metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).g;
-    float occlusion = metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).r;
+    float occlusion = occlusionTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).r;
+    float3 emission = emissiveTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
+    float3 checkerboardValue = checkerBoardTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
 
     color = sRGB_FromLinear3(color);
     float alpha = min(baseColor.a, texColor.a);
     float3 albedo = color * texColor.rgb;
-    // if(baseColor.a < 1.0)
-    //     discard;
+    if(alpha == 0.0f)
+        discard;
 
-    // return float4(normals, 1);
-    // return float4(occlusion, 0, 0, 1);
+    // return float4(roughness, 0, 0, 1);
 
     float3 tangent = vsOut.tangent.xyz;
     normals = 2 * normals - 1;
     normals = vsOut.tangent.xyz * normals.x + vsOut.biTangent * normals.y + vsOut.normal * normals.z;
+    // return float4(normals, 1);
 
     float3 l = lightDir;
     float3 v = normalize(vsOut.eye - vsOut.worldPos);
     float3 h = normalize(l + v);
     float3 n = normalize(normals);
+
+    // return float4(normals, 1);
 
     float3 F0 = 0.04f; 
     F0 = lerp(F0, albedo, metallic);
@@ -231,10 +238,13 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float3 diff = kd * saturate(dot(l, vsOut.normal)) * color * texColor.rgb;
     float3 spec = ks * pow(saturate(dot(vsOut.normal, h)), 90) ;
     float3 ambient = ka * color * texColor.rgb;
+    emission = emission0 * emission;
 
     // float3 radiance = lightIntensity * shadowValue * (diff + spec) + ambient;
-    float3 radiance = shadowValue * (kD * albedo / PI + specular) * lightIntensity * NdotL + ambient;
+    float3 radiance =  (kD * albedo / PI + specular) * lightIntensity * NdotL + ambient + emission;
     radiance *= occlusion;
+
+    // return float4(albedo, 1);
 
     return float4(radiance, alpha);
 }

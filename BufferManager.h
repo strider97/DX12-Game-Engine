@@ -8,6 +8,8 @@ struct alignas(256) MaterialProperties {
 	DirectX::XMFLOAT4 baseColor;
 	float roughness;
 	float metallic;
+	float pad[2];
+	DirectX::XMFLOAT3 emission;
 };
 
 struct Texture
