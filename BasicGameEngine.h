@@ -20,6 +20,8 @@
 #include "tiny_gltf.h"
 #include "BufferManager.h"
 #include "CheckerBoardPipeline.h"
+#include "SkyboxIrradiance.h"
+#include "Skybox.h"
 
 using namespace DirectX;
 
@@ -107,6 +109,7 @@ private:
     UINT m_rtvDescriptorSize;
     UINT m_cbvHeapDescriptorSize;
     UINT m_dsvHeapDescriptorSize;
+    Skybox* skybox;
        
     // App resources.
     ComPtr<ID3D12Resource> m_vertexBuffer;
@@ -130,6 +133,7 @@ private:
     std::vector<Vertex> m_vertices;
     Texture* sometexture;
     CheckerBoardPipeline* checkerboardPipeline;
+    SkyboxIrradiance* skyboxIrradianceMap;
 
     DirectX::XMMATRIX m_projectionMatrix = XMMatrixPerspectiveFovRH(XMConvertToRadians(m_FoV), 16.0/9, 0.1f, 100.0f);
     Camera m_camera = Camera();

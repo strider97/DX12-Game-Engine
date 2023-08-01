@@ -180,29 +180,8 @@ void BufferManager::loadImages2(tinygltf::Model &model) {
 }
 
 
-void createTextureFromMemory(ComPtr<ID3D12Device> &device, ComPtr<ID3D12GraphicsCommandList> &commandList, const uint8_t* textureData, const size_t textureDataSize, Texture *texture)
+void Texture::createTextureFromMemory(ComPtr<ID3D12Device> &device, ComPtr<ID3D12GraphicsCommandList> &commandList, const uint8_t* textureData, const size_t textureDataSize, Texture *texture)
 {	
-
-	/*
-	HRESULT DirectX::LoadWICTextureFromMemoryEx(
-    ID3D12Device* d3dDevice,
-    const uint8_t* wicData,
-    size_t wicDataSize,
-    size_t maxsize,
-    D3D12_RESOURCE_FLAGS resFlags,
-    WIC_LOADER_FLAGS loadFlags,
-    ID3D12Resource** texture,
-    std::unique_ptr<uint8_t[]>& decodedData,
-    D3D12_SUBRESOURCE_DATA& subresource) noexcept
-
-	ID3D12Device* d3dDevice,
-    const uint8_t* wicData,
-    size_t wicDataSize,
-    ID3D12Resource** texture,
-    std::unique_ptr<uint8_t[]>& decodedData,
-    D3D12_SUBRESOURCE_DATA& subresource,
-    size_t maxsize) noexcept
-	*/
     ThrowIfFailed(DirectX::LoadWICTextureFromMemoryEx(device.Get(), textureData, textureDataSize,
 		0Ui64, D3D12_RESOURCE_FLAG_NONE, DirectX::WIC_LOADER_IGNORE_SRGB,
         texture->resource.GetAddressOf(), texture->decodedData, texture->subresource));
@@ -221,7 +200,7 @@ void createTextureFromMemory(ComPtr<ID3D12Device> &device, ComPtr<ID3D12Graphics
     commandList->ResourceBarrier(1, &barrier);
 }
 
-void loadTextureFromFile(ComPtr<ID3D12Device> &m_device, 
+void Texture::loadTextureFromFile(ComPtr<ID3D12Device> &m_device, 
 ComPtr<ID3D12GraphicsCommandList> &commandList, Texture *texture) {
     ThrowIfFailed(DirectX::LoadWICTextureFromFile(m_device.Get(), texture->filename.c_str(),
         texture->resource.GetAddressOf(), texture->decodedData, texture->subresource));
@@ -251,13 +230,13 @@ void BufferManager::loadImages(tinygltf::Model &model) {
 		this->images.push_back(texture);
 		uint8_t* imageData = &gltfBuffer.data[0] + bufferView.byteOffset;
 		size_t imageSize = bufferView.byteLength;
-		createTextureFromMemory(device, commandList, imageData, imageSize, this->images[i]);
+		Texture::createTextureFromMemory(device, commandList, imageData, imageSize, this->images[i]);
 	}
-	defaultTexture = new Texture(L"./Textures/spree_bank_2k.tiff");
-	loadTextureFromFile(device, commandList, defaultTexture);
+	defaultTexture = new Texture(L"./Textures/white.png");
+	Texture::loadTextureFromFile(device, commandList, defaultTexture);
 	
 	defaultNormalMap = new Texture(L"./Textures/default-normal.png");
-	loadTextureFromFile(device, commandList, defaultNormalMap);
+	Texture::loadTextureFromFile(device, commandList, defaultNormalMap);
 }
 
 

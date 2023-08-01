@@ -71,6 +71,7 @@
     <ClInclude Include="ComputePipeline.h" />
     <ClInclude Include="CheckerBoardPipeline.h" />
     <ClInclude Include="Skybox.h" />
+    <ClInclude Include="SkyboxIrradiance.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -106,6 +107,7 @@
     <ClCompile Include="ComputePipeline.cpp" />
     <ClCompile Include="CheckerBoardPipeline.cpp" />
     <ClCompile Include="Skybox.cpp" />
+    <ClCompile Include="SkyboxIrradiance.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders.hlsl">
@@ -115,6 +117,12 @@
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="brdfCompute.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="skyboxShader.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="IrradianceSkybox.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
   </ItemGroup>

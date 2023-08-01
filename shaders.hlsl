@@ -52,6 +52,7 @@ Texture2D metallicRoughnessTexture : register(t3);
 Texture2D occlusionTexture : register(t4);
 Texture2D emissiveTexture : register(t5);
 Texture2D checkerBoardTexture : register(t6);
+Texture2D skyboxIrradianceTexture : register(t7);
 SamplerState g_sampler : register(s0);
 
 PSInput VSMain(VSInput vInput)
@@ -115,28 +116,6 @@ float getShadowMultiplier(float4 fragposLightSpace) {
     return (currentDepth - 0.0001f) > closestDepth ? 0.0f : 1.0f;
 }
 
-// float4 PSMain(PSInput vsOut) : SV_TARGET
-// {
-//     float kd = 0.4;
-//     float ks = 0.2;
-//     float ka = 0.1;
-//     float3 color = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, 1 - vsOut.uv.y)).rgb;
-//     bool metal = false;
-//     float lightIntensity = 10.4;
-    
-//     float3 l = normalize(float3(6, 9, 4));
-//     float3 v = normalize(vsOut.eye - vsOut.worldPos);
-//     float3 h = normalize(l + v);
-    
-//     float3 diff = kd * saturate(dot(l, vsOut.normal));
-//     float3 spec = pow(saturate(dot(vsOut.normal, h)), 32.0f);
-    
-//     float shadowValue = getShadowValue(vsOut.fragPosLightSpace);
-//     float3 radiance = color * shadowValue * (diff * shadowValue + ka) + 0 * spec * (metal ? (color * ks) : kd);
-//     radiance *= lightIntensity;
-//     return float4(color, 1);
-// }
-
 static float PI = 3.14159265359;
 // ----------------------------------------------------------------------------
 float DistributionGGX(float3 N, float3 H, float roughness)
@@ -195,6 +174,7 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float occlusion = occlusionTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).r;
     float3 emission = emissiveTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
     float3 checkerboardValue = checkerBoardTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
+    float3 irradianceFromMap = skyboxIrradianceTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
 
     color = sRGB_FromLinear3(color);
     float alpha = min(baseColor.a, texColor.a);
@@ -203,6 +183,7 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
         discard;
 
     // return float4(roughness, 0, 0, 1);
+    return float4(irradianceFromMap, alpha);
 
     float3 tangent = vsOut.tangent.xyz;
     normals = 2 * normals - 1;

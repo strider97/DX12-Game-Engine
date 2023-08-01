@@ -3,6 +3,7 @@
 #include <string.h>
 #include "DXSample.h"
 #include "tiny_gltf.h"
+#include "WICTextureLoader12.h"
 
 struct alignas(256) MaterialProperties {
 	DirectX::XMFLOAT4 baseColor;
@@ -27,6 +28,11 @@ struct Texture
         this->filename = filename;
     }
     Texture() {}
+	static void createTextureFromMemory(ComPtr<ID3D12Device> &device, 
+		ComPtr<ID3D12GraphicsCommandList> &commandList, const uint8_t* textureData, 
+		const size_t textureDataSize, Texture *texture);
+	static void loadTextureFromFile(ComPtr<ID3D12Device> &m_device, 
+		ComPtr<ID3D12GraphicsCommandList> &commandList, Texture *texture);
 };
 
 class MeshPrimitive {
@@ -95,4 +101,3 @@ private:
 	ComPtr<ID3D12GraphicsCommandList> commandList;
 	ComPtr<ID3D12CommandQueue> commandQueue;
 };
-

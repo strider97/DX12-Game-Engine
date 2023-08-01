@@ -121,6 +121,7 @@
     <ClInclude Include="ObjLoader.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="Skybox.h" />
+    <ClInclude Include="SkyboxIrradiance.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="stb_image_write.h" />
     <ClInclude Include="tiny_gltf.h" />
@@ -144,6 +145,7 @@
     <ClCompile Include="MeshPrimitive.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="Skybox.cpp" />
+    <ClCompile Include="SkyboxIrradiance.cpp" />
     <ClCompile Include="WICTextureLoader12.cpp" />
     <ClCompile Include="Win32Application.cpp" />
     <ClCompile Include="DXSample.cpp" />
@@ -168,6 +170,20 @@
       <FileType>Document</FileType>
     </CustomBuild>
     <CustomBuild Include="brdfCompute.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4.0</ShaderModel>
+      <FileType>Document</FileType>
+    </CustomBuild>
+    <CustomBuild Include="skyboxShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4.0</ShaderModel>
+      <FileType>Document</FileType>
+    </CustomBuild>
+    <CustomBuild Include="IrradianceSkybox.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>

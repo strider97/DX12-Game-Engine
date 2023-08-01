@@ -29,8 +29,8 @@ BasicGameEngine::BasicGameEngine(UINT width, UINT height, std::wstring name) :
 void BasicGameEngine::OnInit()
 {
     LoadPipeline();
-    loadObjects();
     LoadPipelineAssets();
+    loadObjects();
     loadModels();
 
     ThrowIfFailed(m_commandList->Close());
@@ -42,15 +42,24 @@ void BasicGameEngine::OnInit()
         GetAssetFullPath(L"ComputeShader.hlsl").c_str(), "CSLut", m_device, m_computeCommandAllocator);
     checkerboardPipeline->loadPipeline();
     checkerboardPipeline->executeTasks();
+    ThrowIfFailed(checkerboardPipeline->commandList->Close());
+
+    skyboxIrradianceMap = new SkyboxIrradiance(
+        GetAssetFullPath(L"IrradianceSkybox.hlsl").c_str(), "CSIrradianceSkybox", m_device, m_computeCommandAllocator);
+    skyboxIrradianceMap->loadPipeline();
+    skyboxIrradianceMap->skyboxTextureHandle = skybox->descriptorHeap->GetGPUDescriptorHandleForHeapStart();
+    skyboxIrradianceMap->executeTasks();
+    ThrowIfFailed(skyboxIrradianceMap->commandList->Close());
 
     ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fenceCompute)));
     m_fenceValueCompute = 1;
     m_fenceEventCompute = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-    ThrowIfFailed(checkerboardPipeline->commandList->Close());
-    ID3D12CommandList* computeCommandLists[] = { checkerboardPipeline->commandList.Get() };
+    ID3D12CommandList* computeCommandLists[] = { 
+        checkerboardPipeline->commandList.Get(), 
+        skyboxIrradianceMap->commandList.Get() 
+    };
     computeCommandQueue->ExecuteCommandLists(_countof(computeCommandLists), computeCommandLists);
-
     WaitForComputeTask();
 }
 
@@ -191,8 +200,8 @@ void BasicGameEngine::LoadPipelineAssets()
             featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
         }
 
-        CD3DX12_DESCRIPTOR_RANGE1 ranges[4];
-        CD3DX12_ROOT_PARAMETER1 rootParameters[5];
+        CD3DX12_DESCRIPTOR_RANGE1 ranges[5];
+        CD3DX12_ROOT_PARAMETER1 rootParameters[6];
         CD3DX12_ROOT_PARAMETER1 shadowRootParameters[1];
 
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
@@ -207,6 +216,9 @@ void BasicGameEngine::LoadPipelineAssets()
 
         ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 6);
         rootParameters[4].InitAsDescriptorTable(1, &ranges[3], D3D12_SHADER_VISIBILITY_PIXEL);
+
+        ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 7);
+        rootParameters[5].InitAsDescriptorTable(1, &ranges[4], D3D12_SHADER_VISIBILITY_PIXEL);
 
         shadowRootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
 
@@ -473,7 +485,7 @@ void BasicGameEngine::LoadPipelineAssets()
 }
 
 void BasicGameEngine::loadObjects()  {
-    
+    skybox = new Skybox(m_device, m_commandList);
 }
 
 void BasicGameEngine::loadModels() {
@@ -606,6 +618,7 @@ void BasicGameEngine::PopulateCommandList()
     cbv_srv_handle.Offset(1, m_cbvHeapDescriptorSize);
     m_commandList->SetGraphicsRootDescriptorTable(1, cbv_srv_handle);
     m_commandList->SetGraphicsRootDescriptorTable(4, checkerboardPipeline->textureGpuHandle);
+    m_commandList->SetGraphicsRootDescriptorTable(5, skyboxIrradianceMap->textureGpuHandle);
 
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);
@@ -641,6 +654,8 @@ void BasicGameEngine::PopulateCommandList()
         
         m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
     }
+    WaitForPreviousFrame();
+    skybox->draw(m_constantBuffer->GetGPUVirtualAddress());
 
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
