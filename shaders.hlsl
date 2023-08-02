@@ -117,6 +117,21 @@ float getShadowMultiplier(float4 fragposLightSpace) {
 }
 
 static float PI = 3.14159265359;
+
+// ----------------------------------------------------------------------------
+float2 directionToEquirectangularUV(float3 direction)
+{
+    float phi = atan2(direction.z, direction.x); // Range [-pi, pi]
+    float theta = acos(direction.y); // Range [0, pi]
+
+    // Convert longitude (phi) to UV.x in the range [0, 1]
+    float u = (phi + PI) / (2.0f * PI);
+
+    // Convert latitude (theta) to UV.y in the range [0, 1]
+    float v = theta / PI;
+
+    return float2(u, v);
+}
 // ----------------------------------------------------------------------------
 float DistributionGGX(float3 N, float3 H, float roughness)
 {
@@ -163,10 +178,10 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
 {
     float kd = 0.4;
     float ks = 0.2;
-    float ka = 0.2;
+    float3 ka = 0.8;
     float3 color = baseColor;//float3(255, 212, 128)/255;
     bool isMetal = false;
-    float lightIntensity = 2.5f;
+    float lightIntensity = 0.f;
     float4 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y));
     float3 normals = normalTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
     float metallic = metallic0 * metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).b;
@@ -174,7 +189,8 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float occlusion = occlusionTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).r;
     float3 emission = emissiveTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
     float3 checkerboardValue = checkerBoardTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
-    float3 irradianceFromMap = skyboxIrradianceTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
+    float2 irradianceUV = directionToEquirectangularUV(vsOut.normal);
+    float3 irradianceFromMap = skyboxIrradianceTexture.Sample(g_sampler, float2(irradianceUV.x, irradianceUV.y)).rgb;
 
     color = sRGB_FromLinear3(color);
     float alpha = min(baseColor.a, texColor.a);
@@ -183,7 +199,7 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
         discard;
 
     // return float4(roughness, 0, 0, 1);
-    return float4(irradianceFromMap, alpha);
+    // return float4(irradianceFromMap, alpha);
 
     float3 tangent = vsOut.tangent.xyz;
     normals = 2 * normals - 1;
@@ -216,9 +232,9 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float NdotL = max(dot(n, l), 0.0f);
 
     float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
-    float3 diff = kd * saturate(dot(l, vsOut.normal)) * color * texColor.rgb;
+    float3 diff = kd * saturate(dot(l, vsOut.normal)) * albedo;
     float3 spec = ks * pow(saturate(dot(vsOut.normal, h)), 90) ;
-    float3 ambient = ka * color * texColor.rgb;
+    float3 ambient = ka * irradianceFromMap * albedo;
     emission = emission0 * emission;
 
     // float3 radiance = lightIntensity * shadowValue * (diff + spec) + ambient;

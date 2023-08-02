@@ -22,6 +22,7 @@
 #include "CheckerBoardPipeline.h"
 #include "SkyboxIrradiance.h"
 #include "Skybox.h"
+#include "PreFilterEnv.h"
 
 using namespace DirectX;
 
@@ -133,7 +134,7 @@ private:
     std::vector<Vertex> m_vertices;
     Texture* sometexture;
     CheckerBoardPipeline* checkerboardPipeline;
-    SkyboxIrradiance* skyboxIrradianceMap;
+    PreFilterEnv* skyboxIrradianceMap;
 
     DirectX::XMMATRIX m_projectionMatrix = XMMatrixPerspectiveFovRH(XMConvertToRadians(m_FoV), 16.0/9, 0.1f, 100.0f);
     Camera m_camera = Camera();

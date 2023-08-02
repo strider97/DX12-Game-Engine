@@ -44,7 +44,7 @@ void BasicGameEngine::OnInit()
     checkerboardPipeline->executeTasks();
     ThrowIfFailed(checkerboardPipeline->commandList->Close());
 
-    skyboxIrradianceMap = new SkyboxIrradiance(
+    skyboxIrradianceMap = new PreFilterEnv(
         GetAssetFullPath(L"IrradianceSkybox.hlsl").c_str(), "CSIrradianceSkybox", m_device, m_computeCommandAllocator);
     skyboxIrradianceMap->loadPipeline();
     skyboxIrradianceMap->skyboxTextureHandle = skybox->descriptorHeap->GetGPUDescriptorHandleForHeapStart();

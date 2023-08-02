@@ -2,7 +2,7 @@
 #define PI 3.14159265358
 
 static const float TwoPI = 2 * PI;
-static const uint NumSamples = 1024;
+static const uint NumSamples = 1024 * 8;
 static const float InvNumSamples = 1.0f / NumSamples;
 static const float Epsilon = 0.00001;
 
@@ -101,7 +101,7 @@ void computeBasisVectors(const float3 N, out float3 S, out float3 T)
 	S = normalize(cross(N, T));
 }
 
-[numthreads(32, 16, 1)]
+[numthreads(32, 32, 1)]
 void CSIrradianceSkybox(uint3 DTid : SV_DispatchThreadID)
 {   
     // Compute the texture coordinates in the LUT

@@ -119,6 +119,7 @@
     <ClInclude Include="GLTF_Loader.h" />
     <ClInclude Include="json.hpp" />
     <ClInclude Include="ObjLoader.h" />
+    <ClInclude Include="PreFilterEnv.h" />
     <ClInclude Include="ShadowMap.h" />
     <ClInclude Include="Skybox.h" />
     <ClInclude Include="SkyboxIrradiance.h" />
@@ -143,6 +144,7 @@
     <ClCompile Include="DirectionLight.cpp" />
     <ClCompile Include="GLTF_Loader.cpp" />
     <ClCompile Include="MeshPrimitive.cpp" />
+    <ClCompile Include="PreFilterEnv.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
     <ClCompile Include="Skybox.cpp" />
     <ClCompile Include="SkyboxIrradiance.cpp" />

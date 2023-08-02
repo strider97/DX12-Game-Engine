@@ -1,7 +1,7 @@
 #include "stdafx.h"
-#include "SkyboxIrradiance.h"
+#include "PreFilterEnv.h"
 
-void SkyboxIrradiance::loadPipeline()
+void PreFilterEnv::loadPipeline()
 {
     createRootSignature();
     createPSO();
@@ -9,10 +9,10 @@ void SkyboxIrradiance::loadPipeline()
     loadResources();
 }
 
-void SkyboxIrradiance::loadResources()
+void PreFilterEnv::loadResources()
 {   
-    UINT textureWidth = 128; // Adjust the width and height as needed
-    UINT textureHeight = 64;
+    UINT textureWidth = 1280; // Adjust the width and height as needed
+    UINT textureHeight = 640;
     DXGI_FORMAT textureFormat = DXGI_FORMAT_R32G32B32A32_FLOAT; // Choose a suitable format
 
     // Create the texture resource
@@ -72,7 +72,7 @@ void SkyboxIrradiance::loadResources()
     textureGpuHandle = hDescriptorGPU;
 }
 
-void SkyboxIrradiance::createRootSignature() {
+void PreFilterEnv::createRootSignature() {
     CD3DX12_ROOT_PARAMETER1 slotRootParameter[2];
     CD3DX12_DESCRIPTOR_RANGE1 range;
     range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
@@ -121,7 +121,7 @@ void SkyboxIrradiance::createRootSignature() {
     ThrowIfFailed(device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature)));
 }
 
-void SkyboxIrradiance::executeTasks() {
+void PreFilterEnv::executeTasks() {
     ID3D12DescriptorHeap* descriptorHeaps[] = { textureHeap.Get() };
     // CD3DX12_GPU_DESCRIPTOR_HANDLE hDescriptor(textureHeap -> GetGPUDescriptorHandleForHeapStart());
     // UINT hDescriptorIncrementSize = device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
@@ -132,8 +132,8 @@ void SkyboxIrradiance::executeTasks() {
     
     commandList->SetComputeRootDescriptorTable(1, skyboxTextureHandle);
 
-    const UINT dispatchWidth = 8;
-    const UINT dispatchHeight = 4;
+    const UINT dispatchWidth = 80;
+    const UINT dispatchHeight = 40;
     commandList->Dispatch(dispatchWidth, dispatchHeight, 1);
 }
 
