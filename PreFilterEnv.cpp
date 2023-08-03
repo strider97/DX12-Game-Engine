@@ -9,10 +9,13 @@ void PreFilterEnv::loadPipeline()
     loadResources();
 }
 
+int PreFilterEnv::WIDTH = 1024;
+int PreFilterEnv::HEIGHT = 512;
+
 void PreFilterEnv::loadResources()
 {   
-    UINT textureWidth = 1280; // Adjust the width and height as needed
-    UINT textureHeight = 640;
+    UINT textureWidth = WIDTH; // Adjust the width and height as needed
+    UINT textureHeight = HEIGHT;
     DXGI_FORMAT textureFormat = DXGI_FORMAT_R32G32B32A32_FLOAT; // Choose a suitable format
 
     // Create the texture resource
@@ -132,8 +135,8 @@ void PreFilterEnv::executeTasks() {
     
     commandList->SetComputeRootDescriptorTable(1, skyboxTextureHandle);
 
-    const UINT dispatchWidth = 80;
-    const UINT dispatchHeight = 40;
+    const UINT dispatchWidth = WIDTH / 32;
+    const UINT dispatchHeight = HEIGHT / 32;
     commandList->Dispatch(dispatchWidth, dispatchHeight, 1);
 }
 

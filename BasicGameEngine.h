@@ -134,7 +134,8 @@ private:
     std::vector<Vertex> m_vertices;
     Texture* sometexture;
     CheckerBoardPipeline* checkerboardPipeline;
-    PreFilterEnv* skyboxIrradianceMap;
+    SkyboxIrradiance* skyboxIrradianceMap;
+    PreFilterEnv* preFilterEnvMap;
 
     DirectX::XMMATRIX m_projectionMatrix = XMMatrixPerspectiveFovRH(XMConvertToRadians(m_FoV), 16.0/9, 0.1f, 100.0f);
     Camera m_camera = Camera();

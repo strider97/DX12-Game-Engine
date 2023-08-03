@@ -13,9 +13,11 @@ public:
     CD3DX12_GPU_DESCRIPTOR_HANDLE textureGpuHandle;
     CD3DX12_GPU_DESCRIPTOR_HANDLE skyboxTextureHandle;
 
+    static int WIDTH;
+    static int HEIGHT;
+
     virtual void loadPipeline() override;
     virtual void loadResources() override;
     virtual void createRootSignature() override;
     virtual void executeTasks() override;
 };
-

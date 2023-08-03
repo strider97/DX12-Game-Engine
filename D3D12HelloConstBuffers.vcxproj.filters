@@ -127,6 +127,9 @@
     <CustomBuild Include="IrradianceSkybox.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
+    <CustomBuild Include="PreFilterEnvMapShader.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="SomeShader.hlsl" />

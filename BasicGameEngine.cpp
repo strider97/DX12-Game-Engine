@@ -44,12 +44,19 @@ void BasicGameEngine::OnInit()
     checkerboardPipeline->executeTasks();
     ThrowIfFailed(checkerboardPipeline->commandList->Close());
 
-    skyboxIrradianceMap = new PreFilterEnv(
+    skyboxIrradianceMap = new SkyboxIrradiance(
         GetAssetFullPath(L"IrradianceSkybox.hlsl").c_str(), "CSIrradianceSkybox", m_device, m_computeCommandAllocator);
     skyboxIrradianceMap->loadPipeline();
     skyboxIrradianceMap->skyboxTextureHandle = skybox->descriptorHeap->GetGPUDescriptorHandleForHeapStart();
     skyboxIrradianceMap->executeTasks();
     ThrowIfFailed(skyboxIrradianceMap->commandList->Close());
+
+    preFilterEnvMap = new PreFilterEnv(
+        GetAssetFullPath(L"PreFilterEnvMapShader.hlsl").c_str(), "CSPreFilterEnvMap", m_device, m_computeCommandAllocator);
+    preFilterEnvMap->loadPipeline();
+    preFilterEnvMap->skyboxTextureHandle = skybox->descriptorHeap->GetGPUDescriptorHandleForHeapStart();
+    preFilterEnvMap->executeTasks();
+    ThrowIfFailed(preFilterEnvMap->commandList->Close());
 
     ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fenceCompute)));
     m_fenceValueCompute = 1;
@@ -57,7 +64,8 @@ void BasicGameEngine::OnInit()
 
     ID3D12CommandList* computeCommandLists[] = { 
         checkerboardPipeline->commandList.Get(), 
-        skyboxIrradianceMap->commandList.Get() 
+        skyboxIrradianceMap->commandList.Get(),
+        preFilterEnvMap->commandList.Get()
     };
     computeCommandQueue->ExecuteCommandLists(_countof(computeCommandLists), computeCommandLists);
     WaitForComputeTask();
@@ -200,8 +208,8 @@ void BasicGameEngine::LoadPipelineAssets()
             featureData.HighestVersion = D3D_ROOT_SIGNATURE_VERSION_1_0;
         }
 
-        CD3DX12_DESCRIPTOR_RANGE1 ranges[5];
-        CD3DX12_ROOT_PARAMETER1 rootParameters[6];
+        CD3DX12_DESCRIPTOR_RANGE1 ranges[6];
+        CD3DX12_ROOT_PARAMETER1 rootParameters[7];
         CD3DX12_ROOT_PARAMETER1 shadowRootParameters[1];
 
         ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
@@ -219,6 +227,9 @@ void BasicGameEngine::LoadPipelineAssets()
 
         ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 7);
         rootParameters[5].InitAsDescriptorTable(1, &ranges[4], D3D12_SHADER_VISIBILITY_PIXEL);
+        
+        ranges[5].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 8);
+        rootParameters[6].InitAsDescriptorTable(1, &ranges[5], D3D12_SHADER_VISIBILITY_PIXEL);
 
         shadowRootParameters[0].InitAsDescriptorTable(1, &ranges[0], D3D12_SHADER_VISIBILITY_VERTEX);
 
@@ -490,7 +501,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/taxi.glb", model);
+    GLTF_Loader::loadGltf("./Models/tesla.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -619,6 +630,7 @@ void BasicGameEngine::PopulateCommandList()
     m_commandList->SetGraphicsRootDescriptorTable(1, cbv_srv_handle);
     m_commandList->SetGraphicsRootDescriptorTable(4, checkerboardPipeline->textureGpuHandle);
     m_commandList->SetGraphicsRootDescriptorTable(5, skyboxIrradianceMap->textureGpuHandle);
+    m_commandList->SetGraphicsRootDescriptorTable(6, preFilterEnvMap->textureGpuHandle);
 
     m_commandList->RSSetViewports(1, &m_viewport);
     m_commandList->RSSetScissorRects(1, &m_scissorRect);

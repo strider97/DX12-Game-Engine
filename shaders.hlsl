@@ -53,6 +53,7 @@ Texture2D occlusionTexture : register(t4);
 Texture2D emissiveTexture : register(t5);
 Texture2D checkerBoardTexture : register(t6);
 Texture2D skyboxIrradianceTexture : register(t7);
+Texture2D preFilterEnvMapTexture : register(t8);
 SamplerState g_sampler : register(s0);
 
 PSInput VSMain(VSInput vInput)
@@ -177,20 +178,19 @@ float3 fresnelSchlick(float cosTheta, float3 F0)
 float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
 {
     float kd = 0.4;
-    float ks = 0.2;
+    float ks = 0.4;
     float3 ka = 0.8;
     float3 color = baseColor;//float3(255, 212, 128)/255;
     bool isMetal = false;
-    float lightIntensity = 0.f;
+    float lightIntensity = 2.f;
     float4 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y));
     float3 normals = normalTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
     float metallic = metallic0 * metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).b;
     float roughness = roughness0 * metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).g;
     float occlusion = occlusionTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).r;
     float3 emission = emissiveTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
-    float3 checkerboardValue = checkerBoardTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
-    float2 irradianceUV = directionToEquirectangularUV(vsOut.normal);
-    float3 irradianceFromMap = skyboxIrradianceTexture.Sample(g_sampler, float2(irradianceUV.x, irradianceUV.y)).rgb;
+    float2 irradianceMapUV = directionToEquirectangularUV(vsOut.normal);
+    float3 irradianceFromMap = skyboxIrradianceTexture.Sample(g_sampler, float2(irradianceMapUV.x, irradianceMapUV.y)).rgb;
 
     color = sRGB_FromLinear3(color);
     float alpha = min(baseColor.a, texColor.a);
@@ -210,6 +210,7 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float3 v = normalize(vsOut.eye - vsOut.worldPos);
     float3 h = normalize(l + v);
     float3 n = normalize(normals);
+    float3 r = reflect(-v, n);
 
     // return float4(normals, 1);
 
@@ -231,6 +232,14 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     // // add to outgoing radiance Lo
     float NdotL = max(dot(n, l), 0.0f);
 
+    float2 preFilterEnvMapUV = directionToEquirectangularUV(r);
+    float3 envMapLi = preFilterEnvMapTexture.Sample(g_sampler, float2(preFilterEnvMapUV.x, preFilterEnvMapUV.y)).rgb;
+    float roughness_ = 0.45f;
+    float nDotV = max(dot(n, v), 0.0f);
+    float2 envBRDF = checkerBoardTexture.Sample(g_sampler, float2(roughness_, nDotV)).rg;
+    specular = envMapLi * (F * envBRDF.x + envBRDF.y);
+    // return float4(specular, alpha);
+
     float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
     float3 diff = kd * saturate(dot(l, vsOut.normal)) * albedo;
     float3 spec = ks * pow(saturate(dot(vsOut.normal, h)), 90) ;
@@ -238,7 +247,8 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     emission = emission0 * emission;
 
     // float3 radiance = lightIntensity * shadowValue * (diff + spec) + ambient;
-    float3 radiance =  (kD * albedo / PI + specular) * lightIntensity * NdotL + ambient + emission;
+//    float3 radiance =  (kD * albedo / PI + specular) * lightIntensity * NdotL + ambient + emission;
+    float3 radiance = lightIntensity * (ambient + specular) + emission;
     radiance *= occlusion;
 
     // return float4(albedo, 1);
