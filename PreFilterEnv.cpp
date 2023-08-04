@@ -9,13 +9,13 @@ void PreFilterEnv::loadPipeline()
     loadResources();
 }
 
-int PreFilterEnv::WIDTH = 1024;
-int PreFilterEnv::HEIGHT = 512;
+int PreFilterEnv::WIDTH = 4096;
+int PreFilterEnv::HEIGHT = 2048;
 
 void PreFilterEnv::loadResources()
 {   
     UINT textureWidth = WIDTH; // Adjust the width and height as needed
-    UINT textureHeight = HEIGHT;
+    UINT textureHeight = WIDTH;
     DXGI_FORMAT textureFormat = DXGI_FORMAT_R32G32B32A32_FLOAT; // Choose a suitable format
 
     // Create the texture resource
@@ -76,7 +76,7 @@ void PreFilterEnv::loadResources()
 }
 
 void PreFilterEnv::createRootSignature() {
-    CD3DX12_ROOT_PARAMETER1 slotRootParameter[2];
+    CD3DX12_ROOT_PARAMETER1 slotRootParameter[3];
     CD3DX12_DESCRIPTOR_RANGE1 range;
     range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
     slotRootParameter[0].InitAsDescriptorTable(1, &range);
@@ -85,9 +85,7 @@ void PreFilterEnv::createRootSignature() {
     range2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 0);
     slotRootParameter[1].InitAsDescriptorTable(1, &range2);
 
-    // CD3DX12_DESCRIPTOR_RANGE1 range3;
-    // range3.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SAMPLER, 1, 0);
-    // slotRootParameter[2].InitAsDescriptorTable(1, &range3);
+    slotRootParameter[2].InitAsConstants(1, 0);
 
     ComPtr<ID3DBlob> serializedRootSig = nullptr;
     ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -124,6 +122,24 @@ void PreFilterEnv::createRootSignature() {
     ThrowIfFailed(device->CreateRootSignature(0, signature->GetBufferPointer(), signature->GetBufferSize(), IID_PPV_ARGS(&rootSignature)));
 }
 
+UINT getLOD(float roughness) {
+    if (roughness < 0.05f)
+        return 0;
+    else if (roughness < 0.1f)
+        return 1;
+    else if (roughness < 0.2f)
+        return 2;
+    else if (roughness < 0.3f)
+        return 3;
+    else if (roughness < 0.45f)
+        return 4;
+    else if (roughness < 0.6f)
+        return 5;
+    else if (roughness < 0.8f)
+        return 6;
+    return 7;
+}
+
 void PreFilterEnv::executeTasks() {
     ID3D12DescriptorHeap* descriptorHeaps[] = { textureHeap.Get() };
     // CD3DX12_GPU_DESCRIPTOR_HANDLE hDescriptor(textureHeap -> GetGPUDescriptorHandleForHeapStart());
@@ -132,11 +148,20 @@ void PreFilterEnv::executeTasks() {
     commandList->SetComputeRootSignature(rootSignature.Get());
     commandList->SetPipelineState(computePSO.Get());
     commandList->SetComputeRootDescriptorTable(0, textureHeap -> GetGPUDescriptorHandleForHeapStart());
-    
     commandList->SetComputeRootDescriptorTable(1, skyboxTextureHandle);
 
     const UINT dispatchWidth = WIDTH / 32;
-    const UINT dispatchHeight = HEIGHT / 32;
-    commandList->Dispatch(dispatchWidth, dispatchHeight, 1);
+    const UINT dispatchHeight = (WIDTH / 2) / 32;
+    std::vector<float> roughnessFactors = { 0.025f, 0.075f, 0.15f, 0.25f, 0.375f, 0.525f, 0.7f, 0.9f };
+    for(float roughness : roughnessFactors) {
+        UINT LOD = getLOD(roughness);
+        UINT powerOf2 = pow(2, LOD);
+        dispatchFor(roughness, dispatchWidth / powerOf2, dispatchHeight / powerOf2);
+    }
+}
+
+void PreFilterEnv::dispatchFor(float roughness, UINT dispatchWidth, UINT dispatchHeight) {
+    commandList->SetComputeRoot32BitConstant(2, roughness * 1000, 0);
+    commandList->Dispatch(max(2, dispatchWidth), max(2, dispatchHeight), 1);
 }
 

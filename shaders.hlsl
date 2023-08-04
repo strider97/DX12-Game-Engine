@@ -1,13 +1,5 @@
-//*********************************************************
-//
-// Copyright (c) Microsoft. All rights reserved.
-// This code is licensed under the MIT License (MIT).
-// THIS CODE IS PROVIDED *AS IS* WITHOUT WARRANTY OF
-// ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING ANY
-// IMPLIED WARRANTIES OF FITNESS FOR A PARTICULAR
-// PURPOSE, MERCHANTABILITY, OR NON-INFRINGEMENT.
-//
-//*********************************************************
+
+#define PI 3.14159265358
 
 cbuffer SceneConstantBuffer : register(b0)
 {
@@ -117,7 +109,58 @@ float getShadowMultiplier(float4 fragposLightSpace) {
     return (currentDepth - 0.0001f) > closestDepth ? 0.0f : 1.0f;
 }
 
-static float PI = 3.14159265359;
+uint getRoughnessLOD(float roughness) {
+    if (roughness < 0.05f)
+        return 0;
+    else if (roughness < 0.1f)
+        return 1;
+    else if (roughness < 0.2f)
+        return 2;
+    else if (roughness < 0.3f)
+        return 3;
+    else if (roughness < 0.45f)
+        return 4;
+    else if (roughness < 0.6f)
+        return 5;
+    else if (roughness < 0.8f)
+        return 6;
+    return 7;
+}
+
+uint computePowerOfTwo(int exponent)
+{
+    switch (exponent)
+    {
+        case 0: return 1;
+        case 1: return 2;
+        case 2: return 4;
+        case 3: return 8;
+        case 4: return 16;
+        case 5: return 32;
+        case 6: return 64;
+        case 7: return 128;
+        case 8: return 256;
+        case 9: return 512;
+        default: return 0; // For values outside the range [0, 9]
+    }
+}
+
+uint getYOffsetForPreFilterEnv(uint LOD) {
+	switch (LOD)
+    {
+        case 0: return 0;
+        case 1: return 1024;
+        case 2: return 1024 + 512;
+        case 3: return 1024 + 512 + 256;
+        case 4: return 1024 + 512 + 256 + 128;
+        case 5: return 1024 + 512 + 256 + 128 + 64;
+        case 6: return 1024 + 512 + 256 + 128 + 64 + 32;
+        case 7: return 1024 + 512 + 256 + 128 + 64 + 32 + 16;
+        case 8: return 1024 + 512 + 256 + 128 + 64 + 32 + 16 + 8;
+        case 9: return 1024 + 512 + 256 + 128 + 64 + 32 + 16 + 8 + 4;
+        default: return 0;
+    }
+}
 
 // ----------------------------------------------------------------------------
 float2 directionToEquirectangularUV(float3 direction)
@@ -182,19 +225,22 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float3 ka = 0.8;
     float3 color = baseColor;//float3(255, 212, 128)/255;
     bool isMetal = false;
-    float lightIntensity = 2.f;
+    float lightIntensity = 1.f;
     float4 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y));
     float3 normals = normalTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
-    float metallic = metallic0 * metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).b;
-    float roughness = roughness0 * metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).g;
+    float metallic = metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).b;
+    float roughness = metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).g;
     float occlusion = occlusionTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).r;
     float3 emission = emissiveTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
     float2 irradianceMapUV = directionToEquirectangularUV(vsOut.normal);
     float3 irradianceFromMap = skyboxIrradianceTexture.Sample(g_sampler, float2(irradianceMapUV.x, irradianceMapUV.y)).rgb;
 
     color = sRGB_FromLinear3(color);
-    float alpha = min(baseColor.a, texColor.a);
     float3 albedo = color * texColor.rgb;
+    roughness = min(roughness, roughness0);
+    metallic = min(metallic, metallic0);
+
+    float alpha = min(baseColor.a, texColor.a);
     if(alpha == 0.0f)
         discard;
 
@@ -223,7 +269,7 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
 
     float3 kS = F;
     float3 kD = 1 - kS;
-    kD *= 1.0f - metallic;	  
+    kD *= 1.0f - metallic;
     
     float3 numerator    = NDF * G * F;
     float denominator = 4.0f * max(dot(n, v), 0.0f) * max(dot(n, l), 0.0f) + 0.0001f;
@@ -232,11 +278,16 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     // // add to outgoing radiance Lo
     float NdotL = max(dot(n, l), 0.0f);
 
+    uint roughnessLOD = getRoughnessLOD(roughness);
     float2 preFilterEnvMapUV = directionToEquirectangularUV(r);
+    preFilterEnvMapUV.y /= 2.0f;
+    if (roughnessLOD > 0) {
+        preFilterEnvMapUV /= computePowerOfTwo(roughnessLOD);
+        preFilterEnvMapUV.y += 2 * (getYOffsetForPreFilterEnv(roughnessLOD) + roughnessLOD)/4096.0f;
+    }
     float3 envMapLi = preFilterEnvMapTexture.Sample(g_sampler, float2(preFilterEnvMapUV.x, preFilterEnvMapUV.y)).rgb;
-    float roughness_ = 0.45f;
     float nDotV = max(dot(n, v), 0.0f);
-    float2 envBRDF = checkerBoardTexture.Sample(g_sampler, float2(roughness_, nDotV)).rg;
+    float2 envBRDF = checkerBoardTexture.Sample(g_sampler, float2(roughness, nDotV)).rg;
     specular = envMapLi * (F * envBRDF.x + envBRDF.y);
     // return float4(specular, alpha);
 

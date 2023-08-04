@@ -180,7 +180,7 @@ void Skybox::loadResources()
     vertexBufferView.SizeInBytes = vertices.size() * sizeof(float);
     vertexBufferView.StrideInBytes = 3 * sizeof(float);
 
-    texture = new Texture(L"./Textures/alps_field_4k.tif");
+    texture = new Texture(L"./Textures/museumplein_4k.tiff");
     Texture::loadTextureFromFile(device, commandList, texture);
 
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};

@@ -242,9 +242,9 @@ void BasicGameEngine::LoadPipelineAssets()
 
         D3D12_STATIC_SAMPLER_DESC sampler = {};
         sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-        sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-        sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-        sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+        sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE;
+        sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE;
+        sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_MIRROR_ONCE;
         sampler.MipLODBias = 0;
         sampler.MaxAnisotropy = 0;
         sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
@@ -254,6 +254,8 @@ void BasicGameEngine::LoadPipelineAssets()
         sampler.ShaderRegister = 0;
         sampler.RegisterSpace = 0;
         sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+
+        D3D12_STATIC_SAMPLER_DESC samplerExact = sampler;
 
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
         rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &sampler, rootSignatureFlags);
@@ -501,7 +503,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/tesla.glb", model);
+    GLTF_Loader::loadGltf("./Models/taxi.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);

@@ -2,7 +2,11 @@
 #include "SkyboxIrradiance.h"
 class PreFilterEnv :
     public ComputePipeline
-{   
+{
+
+private:
+    void dispatchFor(float roughness, UINT width, UINT height);
+
 public:
     PreFilterEnv(LPCWSTR shaderFile, LPCSTR shaderName, ComPtr<ID3D12Device> &device,
         ComPtr<ID3D12CommandAllocator> &commandAllocator)

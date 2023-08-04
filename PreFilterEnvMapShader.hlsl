@@ -8,6 +8,11 @@
 static const float TwoPI = 2 * PI;
 static const float Epsilon = 0.00001;
 
+cbuffer ConstantBuffer : register(b0)
+{
+    uint roughness_;
+};
+
 static const uint NumSamples = 1024;
 static const float InvNumSamples = 1.0 / float(NumSamples);
 
@@ -111,13 +116,58 @@ float3 tangentToWorld(const float3 v, const float3 N, const float3 S, const floa
 	return S * v.x + T * v.y + N * v.z;
 }
 
+uint getYOffset(uint LOD) {
+	switch (LOD)
+    {
+        case 0: return 0;
+        case 1: return 1024;
+        case 2: return 1024 + 512;
+        case 3: return 1024 + 512 + 256;
+        case 4: return 1024 + 512 + 256 + 128;
+        case 5: return 1024 + 512 + 256 + 128 + 64;
+        case 6: return 1024 + 512 + 256 + 128 + 64 + 32;
+        case 7: return 1024 + 512 + 256 + 128 + 64 + 32 + 16;
+        case 8: return 1024 + 512 + 256 + 128 + 64 + 32 + 16 + 8;
+        case 9: return 1024 + 512 + 256 + 128 + 64 + 32 + 16 + 8 + 4;
+        default: return 0;
+    }
+}
+
+uint getLOD(float roughness) {
+    if (roughness < 0.05f)
+        return 0;
+    else if (roughness < 0.1f)
+        return 1;
+    else if (roughness < 0.2f)
+        return 2;
+    else if (roughness < 0.3f)
+        return 3;
+    else if (roughness < 0.45f)
+        return 4;
+    else if (roughness < 0.6f)
+        return 5;
+    else if (roughness < 0.8f)
+        return 6;
+    return 7;
+}
+
+
 [numthreads(32, 32, 1)]
 void CSPreFilterEnvMap(uint3 ThreadID : SV_DispatchThreadID)
 {
 	// Make sure we won't write past output when computing higher mipmap levels.
 	uint outputWidth, outputHeight, outputDepth;
 	outputTexture.GetDimensions(outputWidth, outputHeight, outputDepth);
-	if(ThreadID.x >= outputWidth || ThreadID.y >= outputHeight) {
+	outputHeight /= 2;
+
+	float roughness = roughness_ / 1000.0f;
+	uint LOD = getLOD(roughness);
+	uint powerOf2 = pow(2, LOD);
+	uint width = outputWidth / powerOf2;
+	uint height = outputHeight / powerOf2;
+	uint Yoffset = (getYOffset(LOD) + LOD) * 2;
+
+	if(ThreadID.x >= width + 4 || ThreadID.y >= height + 4) {
 		return;
 	}
 	
@@ -130,7 +180,7 @@ void CSPreFilterEnvMap(uint3 ThreadID : SV_DispatchThreadID)
 	float wt = 4.0 * PI / (inputWidth * inputHeight);
 	
 	// Approximation: Assume zero viewing angle (isotropic reflections).
-	float2 uv_ = (ThreadID.xy + 0.5f) / float2(outputWidth, outputHeight);
+	float2 uv_ = (ThreadID.xy + 0.5f) / float2(width, height);
     float3 N = getSamplingVector(uv_);
 	float3 Lo = N;
 	
@@ -139,7 +189,6 @@ void CSPreFilterEnvMap(uint3 ThreadID : SV_DispatchThreadID)
 
 	float3 color = 0;
 	float weight = 0;
-	float roughness = 0.45f;
 
 	// Convolve environment map using GGX NDF importance sampling.
 	// Weight by cosine term since Epic claims it generally improves quality.
@@ -173,5 +222,6 @@ void CSPreFilterEnvMap(uint3 ThreadID : SV_DispatchThreadID)
 	}
 	color /= weight;
 
-	outputTexture[ThreadID] = float4(color, 1.0);
+	uint3 texelLocation = uint3(ThreadID.x, ThreadID.y + Yoffset, ThreadID.z);
+	outputTexture[texelLocation] = float4(color, 1.0);
 }
