@@ -136,7 +136,7 @@ uint getYOffset(uint LOD) {
 uint getLOD(float roughness) {
     if (roughness < 0.05f)
         return 0;
-    else if (roughness < 0.1f)
+    else if (roughness < 0.125f)
         return 1;
     else if (roughness < 0.2f)
         return 2;
@@ -151,6 +151,23 @@ uint getLOD(float roughness) {
     return 7;
 }
 
+uint computePowerOfTwo(int exponent)
+{
+    switch (exponent)
+    {
+        case 0: return 1;
+        case 1: return 2;
+        case 2: return 4;
+        case 3: return 8;
+        case 4: return 16;
+        case 5: return 32;
+        case 6: return 64;
+        case 7: return 128;
+        case 8: return 256;
+        case 9: return 512;
+        default: return 0; // For values outside the range [0, 9]
+    }
+}
 
 [numthreads(32, 32, 1)]
 void CSPreFilterEnvMap(uint3 ThreadID : SV_DispatchThreadID)
@@ -162,10 +179,10 @@ void CSPreFilterEnvMap(uint3 ThreadID : SV_DispatchThreadID)
 
 	float roughness = roughness_ / 1000.0f;
 	uint LOD = getLOD(roughness);
-	uint powerOf2 = pow(2, LOD);
+	uint powerOf2 = computePowerOfTwo(LOD);
 	uint width = outputWidth / powerOf2;
 	uint height = outputHeight / powerOf2;
-	uint Yoffset = (getYOffset(LOD) + LOD) * 2;
+	uint Yoffset = getYOffset(LOD) + LOD;
 
 	if(ThreadID.x >= width + 4 || ThreadID.y >= height + 4) {
 		return;

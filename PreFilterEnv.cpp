@@ -9,7 +9,7 @@ void PreFilterEnv::loadPipeline()
     loadResources();
 }
 
-int PreFilterEnv::WIDTH = 4096;
+int PreFilterEnv::WIDTH = 2048;
 int PreFilterEnv::HEIGHT = 2048;
 
 void PreFilterEnv::loadResources()
@@ -125,7 +125,7 @@ void PreFilterEnv::createRootSignature() {
 UINT getLOD(float roughness) {
     if (roughness < 0.05f)
         return 0;
-    else if (roughness < 0.1f)
+    else if (roughness < 0.125f)
         return 1;
     else if (roughness < 0.2f)
         return 2;
@@ -162,6 +162,6 @@ void PreFilterEnv::executeTasks() {
 
 void PreFilterEnv::dispatchFor(float roughness, UINT dispatchWidth, UINT dispatchHeight) {
     commandList->SetComputeRoot32BitConstant(2, roughness * 1000, 0);
-    commandList->Dispatch(max(2, dispatchWidth), max(2, dispatchHeight), 1);
+    commandList->Dispatch(max(1, dispatchWidth), max(1, dispatchHeight), 1);
 }
 
