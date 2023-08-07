@@ -11,8 +11,8 @@ void SkyboxIrradiance::loadPipeline()
 
 void SkyboxIrradiance::loadResources()
 {   
-    UINT textureWidth = 128; // Adjust the width and height as needed
-    UINT textureHeight = 64;
+    UINT textureWidth = 256; // Adjust the width and height as needed
+    UINT textureHeight = 128;
     DXGI_FORMAT textureFormat = DXGI_FORMAT_R32G32B32A32_FLOAT; // Choose a suitable format
 
     // Create the texture resource

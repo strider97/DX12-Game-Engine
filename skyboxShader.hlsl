@@ -52,10 +52,24 @@ float2 directionToEquirectangularUV(float3 direction)
     return float2(u, v);
 }
 
+float3 sRGBToLinear(float3 srgbColor)
+{
+    return srgbColor <= 0.04045 ? srgbColor / 12.92 : pow((srgbColor + 0.055) / 1.055, 2.4);
+}
+
+// Convert linear color to sRGB color
+float3 linearToSRGB(float3 linearColor)
+{
+    return linearColor <= 0.0031308 ? linearColor * 12.92 : 1.055 * pow(linearColor, 1.0 / 2.4) - 0.055;
+}
+
 float4 skyboxPS(PSInput input) : SV_TARGET {
     float3 dir = normalize(input.worldPos);
     float2 uv = directionToEquirectangularUV(dir);
     float3 color = skyboxTexture.Sample(g_sampler, float2(uv.x, uv.y)).rgb;
+
+    color *= 0.6f;
+    color = linearToSRGB(color);
     return float4(color, 1);
 }
 

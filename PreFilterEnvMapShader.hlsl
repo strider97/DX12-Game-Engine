@@ -13,7 +13,7 @@ cbuffer ConstantBuffer : register(b0)
     uint roughness_;
 };
 
-static const uint NumSamples = 1024;
+static const uint NumSamples = 2048;
 static const float InvNumSamples = 1.0 / float(NumSamples);
 
 Texture2D inputTexture : register(t0);
@@ -121,14 +121,14 @@ uint getYOffset(uint LOD) {
     {
         case 0: return 0;
         case 1: return 1024;
-        case 2: return 1024 + 512;
-        case 3: return 1024 + 512 + 256;
-        case 4: return 1024 + 512 + 256 + 128;
-        case 5: return 1024 + 512 + 256 + 128 + 64;
-        case 6: return 1024 + 512 + 256 + 128 + 64 + 32;
-        case 7: return 1024 + 512 + 256 + 128 + 64 + 32 + 16;
-        case 8: return 1024 + 512 + 256 + 128 + 64 + 32 + 16 + 8;
-        case 9: return 1024 + 512 + 256 + 128 + 64 + 32 + 16 + 8 + 4;
+        case 2: return 1536;
+        case 3: return 1792;
+        case 4: return 1920;
+        case 5: return 1984;
+        case 6: return 2016;
+        case 7: return 2032;
+        case 8: return 2040;
+        case 9: return 2044;
         default: return 0;
     }
 }
@@ -233,7 +233,7 @@ void CSPreFilterEnvMap(uint3 ThreadID : SV_DispatchThreadID)
 			// Mip level to sample from.
 			// float mipLevel = max(0.5 * log2(ws / wt) + 1.0, 0.0);
 			float2 uv = directionToEquirectangularUV(Li);
-			color  += inputTexture.SampleLevel(defaultSampler, uv, 0).rgb * cosLi;
+			color  += min(24, inputTexture.SampleLevel(defaultSampler, uv, 0).rgb) * cosLi;
 			weight += cosLi;
 		}
 	}

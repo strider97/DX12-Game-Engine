@@ -273,7 +273,7 @@ void BasicGameEngine::LoadPipelineAssets()
         D3D12_STATIC_SAMPLER_DESC samplers[] = { sampler, samplerPreFilter };
 
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-        rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &samplerPreFilter, rootSignatureFlags);
+        rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &sampler, rootSignatureFlags);
 
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC shadowRootSignatureDesc;
         shadowRootSignatureDesc.Init_1_1(_countof(shadowRootParameters), shadowRootParameters, 1, &sampler, rootSignatureFlags);
@@ -518,7 +518,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/tesla2.glb", model);
+    GLTF_Loader::loadGltf("./Models/taxi.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -566,6 +566,11 @@ void BasicGameEngine::OnRender()
     ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
     m_commandQueue->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
+    if(isFirstFrame) {
+        WaitForPreviousFrame();
+        WaitForComputeTask();
+        isFirstFrame = false;
+    }
     // Present the frame.
     ThrowIfFailed(m_swapChain->Present(1, 0));
 
@@ -685,6 +690,7 @@ void BasicGameEngine::PopulateCommandList()
     }
     WaitForPreviousFrame();
     skybox->draw(m_constantBuffer->GetGPUVirtualAddress());
+    // skybox->draw(m_constantBuffer->GetGPUVirtualAddress(), skyboxIrradianceMap->textureGpuHandle);
 
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));

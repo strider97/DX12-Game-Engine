@@ -104,8 +104,10 @@ void computeBasisVectors(const float3 N, out float3 S, out float3 T)
 [numthreads(32, 32, 1)]
 void CSIrradianceSkybox(uint3 DTid : SV_DispatchThreadID)
 {   
+	uint outputWidth, outputHeight;
+	irradianceMap.GetDimensions(outputWidth, outputHeight);
     // Compute the texture coordinates in the LUT
-    float2 uv_ = (DTid.xy + 0.5f) / float2(256, 128);
+    float2 uv_ = (DTid.xy + 0.5f) / float2(outputWidth, outputHeight);
     float3 N = getSamplingVector(uv_);
 	
 	float3 S, T;
@@ -123,7 +125,7 @@ void CSIrradianceSkybox(uint3 DTid : SV_DispatchThreadID)
 		// PIs here cancel out because of division by pdf.
         
         float2 uv = directionToEquirectangularUV(Li);
-        float3 radiance = skyboxTexture.SampleLevel(g_sampler, uv, 0).rgb;
+        float3 radiance = min(32, skyboxTexture.SampleLevel(g_sampler, uv, 0).rgb);
 		irradiance += 2.0 * radiance * cosTheta;
 	}
 	irradiance /= float(NumSamples);

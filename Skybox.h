@@ -24,5 +24,6 @@ public:
     virtual void loadResources();
     void compileShader();
     void draw(D3D12_GPU_VIRTUAL_ADDRESS cBufferAddress);
+    void draw(D3D12_GPU_VIRTUAL_ADDRESS cBufferAddress, D3D12_GPU_DESCRIPTOR_HANDLE &gpuTextureHandle);
 };
 

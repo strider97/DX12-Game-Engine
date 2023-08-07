@@ -143,9 +143,9 @@ void Skybox::createRootSignature()
 
     D3D12_STATIC_SAMPLER_DESC sampler = {};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
-    sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
+    sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+    sampler.AddressV = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
+    sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_MIRROR;
     sampler.MipLODBias = 0;
     sampler.MaxAnisotropy = 0;
     sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_NEVER;
@@ -180,8 +180,11 @@ void Skybox::loadResources()
     vertexBufferView.SizeInBytes = vertices.size() * sizeof(float);
     vertexBufferView.StrideInBytes = 3 * sizeof(float);
 
-    texture = new Texture(L"./Textures/ulmer_4k.tiff");
-    Texture::loadTextureFromFile(device, commandList, texture);
+    // texture = new Texture(L"./Textures/ulmer_4k.tiff");
+    // Texture::loadTextureFromFile(device, commandList, texture);
+
+    texture = new Texture(L"./Textures/alps_field_2k.hdr");
+    Texture::loadHDRTexture(device, commandList, texture);
 
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
     heapDesc.NumDescriptors = 1;
@@ -216,6 +219,20 @@ void Skybox::draw(D3D12_GPU_VIRTUAL_ADDRESS cBufferAddress)
     commandList->IASetVertexBuffers(0, 1, bufferViews);
     commandList->SetGraphicsRootConstantBufferView(0, cBufferAddress);
     commandList->SetGraphicsRootDescriptorTable(1, descriptorHeap.Get()->GetGPUDescriptorHandleForHeapStart());
+    
+    commandList->DrawInstanced(36, 1, 0, 0);
+}
+
+void Skybox::draw(D3D12_GPU_VIRTUAL_ADDRESS cBufferAddress, 
+    D3D12_GPU_DESCRIPTOR_HANDLE &gpuTextureHandle) 
+{
+    commandList->SetGraphicsRootSignature(rootSignature.Get());
+    commandList->SetPipelineState(skyboxPSO.Get());
+    D3D12_VERTEX_BUFFER_VIEW bufferViews[] = { vertexBufferView };
+    
+    commandList->IASetVertexBuffers(0, 1, bufferViews);
+    commandList->SetGraphicsRootConstantBufferView(0, cBufferAddress);
+    commandList->SetGraphicsRootDescriptorTable(1, gpuTextureHandle);
     
     commandList->DrawInstanced(36, 1, 0, 0);
 }

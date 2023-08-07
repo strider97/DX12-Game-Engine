@@ -4,6 +4,7 @@
 #include "DXSample.h"
 #include "tiny_gltf.h"
 #include "WICTextureLoader12.h"
+#include <DirectXTex.h>
 
 struct alignas(256) MaterialProperties {
 	DirectX::XMFLOAT4 baseColor;
@@ -17,12 +18,13 @@ struct Texture
 {
     // Unique material name for lookup.
     std::wstring filename;
-    Microsoft::WRL::ComPtr<ID3D12Resource> resource =
-        nullptr;
-    Microsoft::WRL::ComPtr<ID3D12Resource> uploadHeap =
-        nullptr;
+    Microsoft::WRL::ComPtr<ID3D12Resource> resource;
+    Microsoft::WRL::ComPtr<ID3D12Resource> uploadHeap;
     std::unique_ptr<uint8_t[]> decodedData;
     D3D12_SUBRESOURCE_DATA subresource;
+
+	DirectX::TexMetadata metadata;
+	DirectX::ScratchImage scratchImage;
 
     Texture(std::wstring filename) {
         this->filename = filename;
@@ -32,6 +34,8 @@ struct Texture
 		ComPtr<ID3D12GraphicsCommandList> &commandList, const uint8_t* textureData, 
 		const size_t textureDataSize, Texture *texture);
 	static void loadTextureFromFile(ComPtr<ID3D12Device> &m_device, 
+		ComPtr<ID3D12GraphicsCommandList> &commandList, Texture *texture);
+	static void loadHDRTexture(ComPtr<ID3D12Device> &m_device, 
 		ComPtr<ID3D12GraphicsCommandList> &commandList, Texture *texture);
 };
 

@@ -111,6 +111,7 @@ private:
     UINT m_cbvHeapDescriptorSize;
     UINT m_dsvHeapDescriptorSize;
     Skybox* skybox;
+    bool isFirstFrame = true;
        
     // App resources.
     ComPtr<ID3D12Resource> m_vertexBuffer;

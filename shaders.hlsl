@@ -79,18 +79,41 @@ void ShadowPS(PSInput input) {
 
 }
 
-float convert_sRGB_FromLinear(float theLinearValue) {
-    return theLinearValue <= 0.0031308f
-        ? theLinearValue * 12.92f
-        : pow(theLinearValue, 1.0f / 2.4f) * 1.055f - 0.055f;
+float3 sRGBToLinear(float3 srgbColor)
+{
+    return srgbColor <= 0.04045 ? srgbColor / 12.92 : pow((srgbColor + 0.055) / 1.055, 2.4);
 }
 
-float3 sRGB_FromLinear3(float3 linearValue) {
-    return float3(
-        convert_sRGB_FromLinear(linearValue.x),
-        convert_sRGB_FromLinear(linearValue.y),
-        convert_sRGB_FromLinear(linearValue.z)
+// Convert linear color to sRGB color
+float3 linearToSRGB(float3 linearColor)
+{
+    return linearColor <= 0.0031308 ? linearColor * 12.92 : 1.055 * pow(linearColor, 1.0 / 2.4) - 0.055;
+}
+
+// Convert sRGB color to linear color
+float4 SrgbToLinear4(float4 srgbColor)
+{
+    return float4(
+        srgbColor.xyz <= 0.04045 ? srgbColor.xyz / 12.92 : pow((srgbColor.xyz + 0.055) / 1.055, 2.4),
+        srgbColor.w
     );
+}
+
+// Convert linear color to sRGB color
+float4 LinearToSrgb4(float4 linearColor)
+{
+    return float4(
+        linearColor.xyz <= 0.0031308 ? linearColor.xyz * 12.92 : 1.055 * pow(linearColor.xyz, 1.0 / 2.4) - 0.055,
+        linearColor.w
+    );
+}
+
+float3 linearToGamma(float3 color) {
+    return pow(color, 2.2f);
+}
+
+float3 gammaToLinear(float3 color) {
+    return pow(color, 0.454545f);
 }
 
 float linearizeDepth(float depth)
@@ -151,14 +174,14 @@ uint getYOffsetForPreFilterEnv(uint LOD) {
     {
         case 0: return 0;
         case 1: return 1024;
-        case 2: return 1024 + 512;
-        case 3: return 1024 + 512 + 256;
-        case 4: return 1024 + 512 + 256 + 128;
-        case 5: return 1024 + 512 + 256 + 128 + 64;
-        case 6: return 1024 + 512 + 256 + 128 + 64 + 32;
-        case 7: return 1024 + 512 + 256 + 128 + 64 + 32 + 16;
-        case 8: return 1024 + 512 + 256 + 128 + 64 + 32 + 16 + 8;
-        case 9: return 1024 + 512 + 256 + 128 + 64 + 32 + 16 + 8 + 4;
+        case 2: return 1536;
+        case 3: return 1792;
+        case 4: return 1920;
+        case 5: return 1984;
+        case 6: return 2016;
+        case 7: return 2032;
+        case 8: return 2040;
+        case 9: return 2044;
         default: return 0;
     }
 }
@@ -226,17 +249,16 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float3 ka = 0.8;
     float3 color = baseColor;//float3(255, 212, 128)/255;
     bool isMetal = false;
-    float lightIntensity = 1.7f;
+    float lightIntensity = 1.f;
     float4 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y));
     float3 normals = normalTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
     float metallic = metallic0 * metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).b;
     float roughness = roughness0 * metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).g;
     float occlusion = occlusionTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).r;
     float3 emission = emissiveTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
-    float2 irradianceMapUV = directionToEquirectangularUV(vsOut.normal);
-    float3 irradianceFromMap = skyboxIrradianceTexture.Sample(g_sampler, float2(irradianceMapUV.x, irradianceMapUV.y)).rgb;
 
-    color = sRGB_FromLinear3(color);
+    // color = linearToSRGB(color);
+    texColor = SrgbToLinear4(texColor);
     float3 albedo = color * texColor.rgb;
 
     float alpha = min(baseColor.a, texColor.a);
@@ -304,11 +326,13 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
     float nDotV = max(dot(n, v), 0.0f);
     float2 envBRDF = checkerBoardTexture.Sample(g_sampler, float2(roughness, nDotV)).rg;
     specular = envMapLi * (F * envBRDF.x + envBRDF.y);
-    // return float4(specular, alpha);
 
-    float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
-    float3 diff = kd * saturate(dot(l, vsOut.normal)) * albedo;
-    float3 spec = ks * pow(saturate(dot(vsOut.normal, h)), 90) ;
+    float2 irradianceMapUV = directionToEquirectangularUV(n);
+    float3 irradianceFromMap = skyboxIrradianceTexture.Sample(g_sampler, float2(irradianceMapUV.x, irradianceMapUV.y)).rgb;
+
+    // float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
+    // float3 diff = kd * saturate(dot(l, vsOut.normal)) * albedo;
+    // float3 spec = ks * pow(saturate(dot(vsOut.normal, h)), 90) ;
     float3 ambient = kD * irradianceFromMap * albedo;
     emission = emission0 * emission;
 
@@ -319,5 +343,6 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
 
     // return float4(albedo, 1);
 
+    radiance = linearToSRGB(radiance);
     return float4(radiance, alpha);
 }

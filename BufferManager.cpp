@@ -219,6 +219,57 @@ ComPtr<ID3D12GraphicsCommandList> &commandList, Texture *texture) {
     commandList->ResourceBarrier(1, &barrier);
 }
 
+void Texture::loadHDRTexture(ComPtr<ID3D12Device> &device, 
+	ComPtr<ID3D12GraphicsCommandList> &commandList, Texture *texture) 
+{	
+	auto& metadata = texture->metadata;
+	auto& scratchImage = texture->scratchImage;
+
+    HRESULT hr = DirectX::LoadFromHDRFile(texture->filename.c_str(), &metadata, scratchImage);
+
+    D3D12_RESOURCE_DESC textureDesc = CD3DX12_RESOURCE_DESC::Tex2D(
+		texture->metadata.format, static_cast<UINT64>( texture->metadata.width ),
+		static_cast<UINT>( texture->metadata.height ),
+		static_cast<UINT16>( texture->metadata.arraySize ));
+
+	ThrowIfFailed( device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_DEFAULT ), 
+		D3D12_HEAP_FLAG_NONE, 
+		&textureDesc,
+		D3D12_RESOURCE_STATE_COMMON, 
+		nullptr, 
+		IID_PPV_ARGS(texture->resource.GetAddressOf()))
+	);
+
+	std::vector<D3D12_SUBRESOURCE_DATA> subresources(texture->scratchImage.GetImageCount());
+	const DirectX::Image* pImages = texture->scratchImage.GetImages();
+	for ( int i = 0; i < texture->scratchImage.GetImageCount(); ++i )
+	{
+		auto& subresource      = subresources[i];
+		subresource.RowPitch   = pImages[i].rowPitch;
+		subresource.SlicePitch = pImages[i].slicePitch;
+		subresource.pData      = pImages[i].pixels;
+	}
+
+	// TransitionBarrier( texture, D3D12_RESOURCE_STATE_COPY_DEST );
+    //     FlushResourceBarriers();
+
+	UINT32 numSubresources = static_cast<uint32_t>( subresources.size());
+	UINT64 requiredSize =
+		GetRequiredIntermediateSize( texture->resource.Get(), 0, numSubresources);
+
+	// Create a temporary (intermediate) resource for uploading the subresources
+	ThrowIfFailed( device->CreateCommittedResource(
+		&CD3DX12_HEAP_PROPERTIES( D3D12_HEAP_TYPE_UPLOAD ), D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer( requiredSize ), D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+		IID_PPV_ARGS( &texture->uploadHeap ) ) );
+
+	UpdateSubresources( commandList.Get(), texture->resource.Get(), texture->uploadHeap.Get(), 0,
+		0, numSubresources, subresources.data() );
+	auto barrier = CD3DX12_RESOURCE_BARRIER::Transition(texture->resource.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+    commandList->ResourceBarrier(1, &barrier);
+}
+
 void BufferManager::loadImages(tinygltf::Model &model) {
 	auto &images = model.images;
 	for (int i = 0; i<images.size(); i++) {
