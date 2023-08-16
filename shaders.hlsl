@@ -321,14 +321,14 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
         preFilterEnvMapUV = float2(min(maxUVx, preFilterEnvMapUV.x), min(maxUVy, preFilterEnvMapUV.y));
         // return float4(preFilterEnvMapUV , 0, 1);
     }
-    float3 envMapLi = preFilterEnvMapTexture.Sample(g_sampler, float2(preFilterEnvMapUV.x, preFilterEnvMapUV.y)).rgb;
+    float3 envMapLi = preFilterEnvMapTexture.Sample(samplerPreFilter, float2(preFilterEnvMapUV.x, preFilterEnvMapUV.y)).rgb;
     // return float4(envMapLi, 1);
     float nDotV = max(dot(n, v), 0.0f);
     float2 envBRDF = checkerBoardTexture.Sample(g_sampler, float2(roughness, nDotV)).rg;
     specular = envMapLi * (F * envBRDF.x + envBRDF.y);
 
     float2 irradianceMapUV = directionToEquirectangularUV(n);
-    float3 irradianceFromMap = skyboxIrradianceTexture.Sample(g_sampler, float2(irradianceMapUV.x, irradianceMapUV.y)).rgb;
+    float3 irradianceFromMap = skyboxIrradianceTexture.Sample(samplerPreFilter, float2(irradianceMapUV.x, irradianceMapUV.y)).rgb;
 
     // float shadowValue = getShadowMultiplier(vsOut.fragPosLightSpace);
     // float3 diff = kd * saturate(dot(l, vsOut.normal)) * albedo;

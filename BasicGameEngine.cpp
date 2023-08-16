@@ -253,7 +253,7 @@ void BasicGameEngine::LoadPipelineAssets()
         sampler.MaxLOD = D3D12_FLOAT32_MAX;
         sampler.ShaderRegister = 0;
         sampler.RegisterSpace = 0;
-        sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+        sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
         D3D12_STATIC_SAMPLER_DESC samplerPreFilter = {};
         samplerPreFilter.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -266,14 +266,14 @@ void BasicGameEngine::LoadPipelineAssets()
         // sampler.BorderColor = D3D12_STATIC_BORDER_COLOR_TRANSPARENT_BLACK;
         samplerPreFilter.MinLOD = 0.0f;
         samplerPreFilter.MaxLOD = D3D12_FLOAT32_MAX;
-        samplerPreFilter.ShaderRegister = 0;
+        samplerPreFilter.ShaderRegister = 1;
         samplerPreFilter.RegisterSpace = 0;
-        samplerPreFilter.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+        samplerPreFilter.ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
 
-        D3D12_STATIC_SAMPLER_DESC samplers[] = { sampler, samplerPreFilter };
+        D3D12_STATIC_SAMPLER_DESC samplers[2] = { sampler, samplerPreFilter };
 
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC rootSignatureDesc;
-        rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 1, &sampler, rootSignatureFlags);
+        rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 2, samplers, rootSignatureFlags);
 
         CD3DX12_VERSIONED_ROOT_SIGNATURE_DESC shadowRootSignatureDesc;
         shadowRootSignatureDesc.Init_1_1(_countof(shadowRootParameters), shadowRootParameters, 1, &sampler, rootSignatureFlags);
@@ -518,7 +518,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/taxi.glb", model);
+    GLTF_Loader::loadGltf("./Models/wood_things.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -639,12 +639,46 @@ void BasicGameEngine::PopulateCommandList()
     // list, that command list can then be reset at any time and must be before 
     // re-recording.
     ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
+    
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
+    CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
+    const float clearColor[] = { 0.1f, 0.1f, 0.1f, 1.0f };
+    m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
+    m_commandList->ClearDepthStencilView(m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), 
+        D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+    m_commandList->RSSetViewports(1, &m_viewport);
+    m_commandList->RSSetScissorRects(1, &m_scissorRect);
+
+
+    // Indicate that the back buffer will be used as a render target.
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+    m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
+
+    // Record commands.
+    m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    WaitForPreviousFrame();
+
+    skybox->draw(m_constantBuffer->GetGPUVirtualAddress());
+
+    /*
+    commandList->SetGraphicsRootSignature(rootSignature.Get());
+    commandList->SetPipelineState(skyboxPSO.Get());
+    D3D12_VERTEX_BUFFER_VIEW bufferViews[] = { vertexBufferView };
+    
+    commandList->IASetVertexBuffers(0, 1, bufferViews);
+    commandList->SetGraphicsRootConstantBufferView(0, cBufferAddress);
+    commandList->SetGraphicsRootDescriptorTable(1, descriptorHeap.Get()->GetGPUDescriptorHandleForHeapStart());
+    
+    commandList->DrawInstanced(36, 1, 0, 0);
+    */
 
     // Set necessary state.
     m_commandList->SetGraphicsRootSignature(m_rootSignature.Get());
+    m_commandList->SetPipelineState(m_pipelineState.Get());
 
     ID3D12DescriptorHeap* ppHeaps[] = { m_cbvHeap.Get() };
-    // m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
+    m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
     CD3DX12_GPU_DESCRIPTOR_HANDLE cbv_srv_handle(m_cbvHeap->GetGPUDescriptorHandleForHeapStart());
     m_commandList->SetGraphicsRootDescriptorTable(0, cbv_srv_handle);
@@ -653,24 +687,6 @@ void BasicGameEngine::PopulateCommandList()
     m_commandList->SetGraphicsRootDescriptorTable(4, checkerboardPipeline->textureGpuHandle);
     m_commandList->SetGraphicsRootDescriptorTable(5, skyboxIrradianceMap->textureGpuHandle);
     m_commandList->SetGraphicsRootDescriptorTable(6, preFilterEnvMap->textureGpuHandle);
-
-    m_commandList->RSSetViewports(1, &m_viewport);
-    m_commandList->RSSetScissorRects(1, &m_scissorRect);
-    m_commandList->ClearDepthStencilView(m_dsvHeap->GetCPUDescriptorHandleForHeapStart(), 
-        D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-
-
-    // Indicate that the back buffer will be used as a render target.
-    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
-    CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
-    m_commandList->OMSetRenderTargets(1, &rtvHandle, FALSE, &dsvHandle);
-
-    // Record commands.
-    const float clearColor[] = { 0.1f, 0.1f, 0.1f, 1.0f };
-    m_commandList->ClearRenderTargetView(rtvHandle, clearColor, 0, nullptr);
-    m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
     for (auto& meshPrimitive : bufferManager->meshPrimitives) {
         D3D12_VERTEX_BUFFER_VIEW bufferViews[] = {
@@ -689,12 +705,11 @@ void BasicGameEngine::PopulateCommandList()
         m_commandList->DrawIndexedInstanced(meshPrimitive.indexCount, 1, 0, 0, 0);
     }
     WaitForPreviousFrame();
-    skybox->draw(m_constantBuffer->GetGPUVirtualAddress());
+    // skybox->draw(m_constantBuffer->GetGPUVirtualAddress());
     // skybox->draw(m_constantBuffer->GetGPUVirtualAddress(), skyboxIrradianceMap->textureGpuHandle);
 
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
-
     ThrowIfFailed(m_commandList->Close());
 }
 

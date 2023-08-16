@@ -106,7 +106,7 @@ void Skybox::loadPipeline()
     psoDesc.VS = CD3DX12_SHADER_BYTECODE(vertexShader.Get());
     psoDesc.PS = CD3DX12_SHADER_BYTECODE(pixelShader.Get());
     psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
-    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    psoDesc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
     psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
     psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC(D3D12_DEFAULT);;
     psoDesc.SampleMask = UINT_MAX;
@@ -124,8 +124,8 @@ void Skybox::loadPipeline()
     psoDesc.BlendState.RenderTarget[0].BlendOpAlpha = D3D12_BLEND_OP_ADD; // Alpha blending operation (e.g., addition)
     psoDesc.BlendState.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL; // Write mask for color channels (e.g., RGBA)
 
-    // psoDesc.DepthStencilState.DepthEnable = false;
-    // psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+    psoDesc.DepthStencilState.DepthEnable = false;
+    // psoDesc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_ALWAYS;
 
 
     ThrowIfFailed(device->CreateGraphicsPipelineState(&psoDesc, IID_PPV_ARGS(&skyboxPSO)));
@@ -183,7 +183,7 @@ void Skybox::loadResources()
     // texture = new Texture(L"./Textures/ulmer_4k.tiff");
     // Texture::loadTextureFromFile(device, commandList, texture);
 
-    texture = new Texture(L"./Textures/alps_field_2k.hdr");
+    texture = new Texture(L"./Textures/promenade_2k.hdr");
     Texture::loadHDRTexture(device, commandList, texture);
 
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
