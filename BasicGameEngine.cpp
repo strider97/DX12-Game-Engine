@@ -198,8 +198,6 @@ void BasicGameEngine::LoadPipeline()
         clearVal.Color[3] = 0;
 
         for (int i = 0; i < 6; i++) {
-            if(i%3 == 0)
-                continue;
             resourceDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
             clearVal.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
             ThrowIfFailed(m_device->CreateCommittedResource(
@@ -217,17 +215,16 @@ void BasicGameEngine::LoadPipeline()
     // Create frame resources.
     {
         CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart());
-
         // Create a RTV for each frame.
         for (UINT n = 0; n < FrameCount * 3; n++)
         {   
-            if(n % 3 == 0) {
-                ThrowIfFailed(m_swapChain->GetBuffer(n / 3, IID_PPV_ARGS(&m_renderTargets[n])));
-            }
             m_device->CreateRenderTargetView(m_renderTargets[n].Get(), nullptr, rtvHandle);
             rtvHandle.Offset(1, m_rtvDescriptorSize);
         }
     }
+
+    ThrowIfFailed(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&m_backBuffers[0])));
+    ThrowIfFailed(m_swapChain->GetBuffer(1, IID_PPV_ARGS(&m_backBuffers[1])));
 
     ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&m_commandAllocator)));
     ThrowIfFailed(m_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_COMPUTE, IID_PPV_ARGS(&m_computeCommandAllocator)));
@@ -614,7 +611,8 @@ void BasicGameEngine::OnRender()
         isFirstFrame = false;
     }
     // Present the frame.
-    ThrowIfFailed(m_swapChain->Present(1, 0));
+    if(!isFirstFrame)
+        ThrowIfFailed(m_swapChain->Present(1, 0));
 
     WaitForPreviousFrame();
 }
@@ -682,12 +680,9 @@ void BasicGameEngine::PopulateCommandList()
     // re-recording.
     ThrowIfFailed(m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get()));
     
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
-    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle_(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex, m_rtvDescriptorSize);
-    if(m_frameIndex == 1) {
-        rtvHandle.Offset(2, m_rtvDescriptorSize);
-        rtvHandle_.Offset(2, m_rtvDescriptorSize);
-    }
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex * 3, m_rtvDescriptorSize);
+    CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle_(m_rtvHeap->GetCPUDescriptorHandleForHeapStart(), m_frameIndex * 3, m_rtvDescriptorSize);
+    
     CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
 
     const float clearColor[] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -703,9 +698,7 @@ void BasicGameEngine::PopulateCommandList()
 
 
     // Indicate that the back buffer will be used as a render target.
-    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex * 3].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
-    // m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex * 3 + 1].Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET));
-    // m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex * 3 + 2].Get(), D3D12_RESOURCE_STATE_COMMON, D3D12_RESOURCE_STATE_RENDER_TARGET));
+    // m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex * 3].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
     
     m_commandList->OMSetRenderTargets(3, &rtvHandle, TRUE, &dsvHandle);
@@ -752,7 +745,8 @@ void BasicGameEngine::PopulateCommandList()
     // skybox->draw(m_constantBuffer->GetGPUVirtualAddress(), skyboxIrradianceMap->textureGpuHandle);
 
     // Indicate that the back buffer will now be used to present.
-    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex * 3].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+    // m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex * 3].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
+    
     ThrowIfFailed(m_commandList->Close());
 }
 
