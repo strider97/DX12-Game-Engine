@@ -125,7 +125,7 @@ void CSIrradianceSkybox(uint3 DTid : SV_DispatchThreadID)
 		// PIs here cancel out because of division by pdf.
         
         float2 uv = directionToEquirectangularUV(Li);
-        float3 radiance = min(32, skyboxTexture.SampleLevel(g_sampler, uv, 0).rgb);
+        float3 radiance = min(24, skyboxTexture.SampleLevel(g_sampler, uv, 0).rgb);
 		irradiance += 2.0 * radiance * cosTheta;
 	}
 	irradiance /= float(NumSamples);

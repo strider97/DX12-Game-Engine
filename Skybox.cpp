@@ -183,7 +183,7 @@ void Skybox::loadResources()
     // texture = new Texture(L"./Textures/ulmer_4k.tiff");
     // Texture::loadTextureFromFile(device, commandList, texture);
 
-    texture = new Texture(L"./Textures/pretville_cinema_2k.hdr");
+    texture = new Texture(L"./Textures/lake_pier_2k.hdr");
     Texture::loadHDRTexture(device, commandList, texture);
 
     D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};

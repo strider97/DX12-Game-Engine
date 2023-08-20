@@ -37,6 +37,13 @@ struct PSInput
     float4 fragPosLightSpace : LIGHT_SPACE;
 };
 
+struct PSOutput
+{
+	float4 albedo : SV_TARGET0;
+	float4 normal : SV_TARGET1;
+	float4 roughnessMetallicAO : SV_TARGET2;
+};
+
 Texture2D shadowMapTexture : register(t0);
 Texture2D albedoTexture : register(t1);
 Texture2D normalTexture : register(t2);
@@ -345,4 +352,34 @@ float4 PSSimpleAlbedo(PSInput vsOut) : SV_TARGET
 
     radiance = linearToSRGB(radiance);
     return float4(radiance, alpha);
+}
+
+PSOutput GBufferRenderTargets(PSInput vsOut) : SV_Target {
+    float3 color = baseColor;
+    float4 texColor = albedoTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y));
+    float3 normals = normalTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
+    float3 metallicRoughness = metallicRoughnessTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
+    float metallic = metallic0 * metallicRoughness.b;
+    float roughness = roughness0 * metallicRoughness.g;
+    float occlusion = occlusionTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).r;
+    float3 emission = emissiveTexture.Sample(g_sampler, float2(vsOut.uv.x, vsOut.uv.y)).rgb;
+
+    texColor = SrgbToLinear4(texColor);
+    float3 albedo = color * texColor.rgb;
+    float alpha = min(baseColor.a, texColor.a);
+    
+    float3 tangent = vsOut.tangent.xyz;
+    normals = 2 * normals - 1;
+    normals = vsOut.tangent.xyz * normals.x + vsOut.biTangent * normals.y + vsOut.normal * normals.z;
+
+    PSOutput psOutput;
+
+    psOutput.albedo.xyz = albedo;
+    psOutput.albedo.a = alpha;
+    psOutput.normal.xyz = normals;
+    psOutput.roughnessMetallicAO.r = roughness;
+    psOutput.roughnessMetallicAO.g = metallic;
+    psOutput.roughnessMetallicAO.b = occlusion;
+
+    return psOutput;
 }
