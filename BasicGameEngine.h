@@ -23,6 +23,7 @@
 #include "SkyboxIrradiance.h"
 #include "Skybox.h"
 #include "PreFilterEnv.h"
+#include "LightingPassCompute.h"
 
 using namespace DirectX;
 
@@ -101,8 +102,10 @@ private:
     ComPtr<ID3D12RootSignature> m_rootSignature;
     ComPtr<ID3D12RootSignature> shadowRootSignature;
     ComPtr<ID3D12DescriptorHeap> m_rtvHeap;
+    ComPtr<ID3D12DescriptorHeap> m_gbufferRtvHeap;
     ComPtr<ID3D12DescriptorHeap> m_cbvHeap;
     ComPtr<ID3D12DescriptorHeap> m_dsvHeap;
+    ComPtr<ID3D12DescriptorHeap> m_gbufferDsvHeap;
     ComPtr<ID3D12PipelineState> m_pipelineState;
     ComPtr<ID3D12PipelineState> m_shadowPipelineState;
     ComPtr<ID3D12GraphicsCommandList> m_commandList;
@@ -138,6 +141,7 @@ private:
     CheckerBoardPipeline* checkerboardPipeline;
     SkyboxIrradiance* skyboxIrradianceMap;
     PreFilterEnv* preFilterEnvMap;
+    LightingPassCompute* lightingPass;
 
     DirectX::XMMATRIX m_projectionMatrix = XMMatrixPerspectiveFovRH(XMConvertToRadians(m_FoV), 16.0/9, 0.1f, 100.0f);
     Camera m_camera = Camera();

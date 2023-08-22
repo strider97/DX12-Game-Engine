@@ -118,6 +118,7 @@
     <ClInclude Include="ComputePipeline.h" />
     <ClInclude Include="GLTF_Loader.h" />
     <ClInclude Include="json.hpp" />
+    <ClInclude Include="LightingPassCompute.h" />
     <ClInclude Include="ObjLoader.h" />
     <ClInclude Include="PreFilterEnv.h" />
     <ClInclude Include="ShadowMap.h" />
@@ -143,6 +144,7 @@
     <ClCompile Include="ComputePipeline.cpp" />
     <ClCompile Include="DirectionLight.cpp" />
     <ClCompile Include="GLTF_Loader.cpp" />
+    <ClCompile Include="LightingPassCompute.cpp" />
     <ClCompile Include="MeshPrimitive.cpp" />
     <ClCompile Include="PreFilterEnv.cpp" />
     <ClCompile Include="ShadowMap.cpp" />
@@ -193,6 +195,13 @@
       <FileType>Document</FileType>
     </CustomBuild>
     <CustomBuild Include="PreFilterEnvMapShader.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4.0</ShaderModel>
+      <FileType>Document</FileType>
+    </CustomBuild>
+    <CustomBuild Include="LightingCompute.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compute</ShaderType>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4.0</ShaderModel>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compute</ShaderType>

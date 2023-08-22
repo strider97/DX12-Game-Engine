@@ -73,6 +73,7 @@
     <ClInclude Include="Skybox.h" />
     <ClInclude Include="SkyboxIrradiance.h" />
     <ClInclude Include="PreFilterEnv.h" />
+    <ClInclude Include="LightingPassCompute.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -110,6 +111,7 @@
     <ClCompile Include="Skybox.cpp" />
     <ClCompile Include="SkyboxIrradiance.cpp" />
     <ClCompile Include="PreFilterEnv.cpp" />
+    <ClCompile Include="LightingPassCompute.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders.hlsl">
@@ -128,6 +130,9 @@
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="PreFilterEnvMapShader.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="LightingCompute.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
   </ItemGroup>

@@ -58,6 +58,15 @@ void BasicGameEngine::OnInit()
     preFilterEnvMap->executeTasks();
     ThrowIfFailed(preFilterEnvMap->commandList->Close());
 
+    lightingPass = new LightingPassCompute(
+        GetAssetFullPath(L"LightingCompute.hlsl").c_str(), "LightingPass", m_device, m_computeCommandAllocator);
+
+    lightingPass->setResources(m_swapChain, m_gbufferRtvHeap, m_gbufferDsvHeap, 
+        m_gbufferRtvHeap->GetGPUDescriptorHandleForHeapStart(), 
+        m_gbufferDsvHeap->GetGPUDescriptorHandleForHeapStart());
+    lightingPass->loadPipeline();
+    ThrowIfFailed(lightingPass->commandList->Close());
+
     ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fenceCompute)));
     m_fenceValueCompute = 1;
     m_fenceEventCompute = CreateEvent(nullptr, FALSE, FALSE, nullptr);
@@ -174,6 +183,20 @@ void BasicGameEngine::LoadPipeline()
         cbvHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
         ThrowIfFailed(m_device->CreateDescriptorHeap(&cbvHeapDesc, IID_PPV_ARGS(&m_cbvHeap)));
         m_cbvHeapDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+        D3D12_DESCRIPTOR_HEAP_DESC gBufferReadHeapDesc = {};
+        gBufferReadHeapDesc.NumDescriptors = FrameCount * 3;
+        gBufferReadHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        gBufferReadHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        ThrowIfFailed(m_device->CreateDescriptorHeap(&gBufferReadHeapDesc, IID_PPV_ARGS(&m_gbufferRtvHeap)));
+        m_cbvHeapDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+        D3D12_DESCRIPTOR_HEAP_DESC gBufferDsvReadHeapDesc = {};
+        gBufferDsvReadHeapDesc.NumDescriptors = 1;
+        gBufferDsvReadHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+        gBufferDsvReadHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+        ThrowIfFailed(m_device->CreateDescriptorHeap(&gBufferDsvReadHeapDesc, IID_PPV_ARGS(&m_gbufferDsvHeap)));
+        m_cbvHeapDescriptorSize = m_device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
     }
 
     {
@@ -221,6 +244,24 @@ void BasicGameEngine::LoadPipeline()
             m_device->CreateRenderTargetView(m_renderTargets[n].Get(), nullptr, rtvHandle);
             rtvHandle.Offset(1, m_rtvDescriptorSize);
         }
+    }
+
+    {
+        CD3DX12_CPU_DESCRIPTOR_HANDLE rtvHandle(m_gbufferRtvHeap->GetCPUDescriptorHandleForHeapStart());
+        // Create a RTV for each frame.
+        for (UINT n = 0; n < FrameCount * 3; n++)
+        { 
+            D3D12_SHADER_RESOURCE_VIEW_DESC imageDesc = {};
+            imageDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+            imageDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+            imageDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+            imageDesc.Texture2D.MostDetailedMip = 0;
+            imageDesc.Texture2D.MipLevels = 1;
+            imageDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+            m_device->CreateShaderResourceView(m_renderTargets[n].Get(), &imageDesc, rtvHandle);
+            rtvHandle.Offset(1, m_cbvHeapDescriptorSize);
+        }
+
     }
 
     ThrowIfFailed(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&m_backBuffers[0])));
@@ -390,8 +431,8 @@ void BasicGameEngine::LoadPipelineAssets()
         depthStencilResourceDesc.Dimension =
             D3D12_RESOURCE_DIMENSION_TEXTURE2D;
         depthStencilResourceDesc.Alignment = 0;
-        depthStencilResourceDesc.Width = 1366;
-        depthStencilResourceDesc.Height = 768;
+        depthStencilResourceDesc.Width = m_viewport.Width;
+        depthStencilResourceDesc.Height = m_viewport.Height;
         depthStencilResourceDesc.DepthOrArraySize = 1;
         depthStencilResourceDesc.MipLevels = 1;
         depthStencilResourceDesc.Format = DXGI_FORMAT_D32_FLOAT;
@@ -524,13 +565,27 @@ void BasicGameEngine::LoadPipelineAssets()
 
     CD3DX12_CPU_DESCRIPTOR_HANDLE dsvHandle(m_dsvHeap->GetCPUDescriptorHandleForHeapStart());
     m_device->CreateDepthStencilView(m_depthStencilBuffer.Get(), nullptr, dsvHandle);
+
+
+    CD3DX12_CPU_DESCRIPTOR_HANDLE dsvReadHandle(m_gbufferDsvHeap->GetCPUDescriptorHandleForHeapStart());
+    D3D12_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    srvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+    srvDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    srvDesc.Texture2D.MipLevels = 1;
+    srvDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+    srvDesc.Texture2D.PlaneSlice = 0;
+    m_device->CreateShaderResourceView(m_depthStencilBuffer.Get(), &srvDesc, dsvReadHandle);
+
     m_commandList->Reset(m_commandAllocator.Get(), m_pipelineState.Get());
     m_commandList->ResourceBarrier(
         1,
         &CD3DX12_RESOURCE_BARRIER::Transition(
             m_depthStencilBuffer.Get(),
             D3D12_RESOURCE_STATE_COMMON,
-            D3D12_RESOURCE_STATE_DEPTH_WRITE));
+            D3D12_RESOURCE_STATE_GENERIC_READ));
+
 
     // Create synchronization objects and wait until assets have been uploaded to the GPU.
     {
@@ -615,6 +670,10 @@ void BasicGameEngine::OnRender()
         ThrowIfFailed(m_swapChain->Present(1, 0));
 
     WaitForPreviousFrame();
+
+    ID3D12CommandList* computeCommandLists[] = { lightingPass->commandList.Get() };
+    computeCommandQueue->ExecuteCommandLists(_countof(computeCommandLists), computeCommandLists);
+    WaitForComputeTask();
 }
 
 void BasicGameEngine::OnDestroy()
@@ -698,7 +757,6 @@ void BasicGameEngine::PopulateCommandList()
 
 
     // Indicate that the back buffer will be used as a render target.
-    // m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex * 3].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_RENDER_TARGET));
 
     
     m_commandList->OMSetRenderTargets(3, &rtvHandle, TRUE, &dsvHandle);
@@ -723,6 +781,12 @@ void BasicGameEngine::PopulateCommandList()
     m_commandList->SetGraphicsRootDescriptorTable(4, checkerboardPipeline->textureGpuHandle);
     m_commandList->SetGraphicsRootDescriptorTable(5, skyboxIrradianceMap->textureGpuHandle);
     m_commandList->SetGraphicsRootDescriptorTable(6, preFilterEnvMap->textureGpuHandle);
+    
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex*3].Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex*3 + 1].Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex*3 + 2].Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_RENDER_TARGET));
+
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_depthStencilBuffer.Get(), D3D12_RESOURCE_STATE_GENERIC_READ, D3D12_RESOURCE_STATE_DEPTH_WRITE));
 
     for (auto& meshPrimitive : bufferManager->meshPrimitives) {
         D3D12_VERTEX_BUFFER_VIEW bufferViews[] = {
@@ -744,10 +808,20 @@ void BasicGameEngine::PopulateCommandList()
     // skybox->draw(m_constantBuffer->GetGPUVirtualAddress());
     // skybox->draw(m_constantBuffer->GetGPUVirtualAddress(), skyboxIrradianceMap->textureGpuHandle);
 
-    // Indicate that the back buffer will now be used to present.
-    // m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex * 3].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PRESENT));
-    
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex*3].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex*3 + 1].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex*3 + 2].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_depthStencilBuffer.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ));
+
     ThrowIfFailed(m_commandList->Close());
+    
+    ThrowIfFailed(m_computeCommandAllocator->Reset());
+    ThrowIfFailed(lightingPass->commandList->Reset(m_computeCommandAllocator.Get(), lightingPass->computePSO.Get()));
+//    lightingPass->commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_backBuffers[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
+    lightingPass->executeTasks(m_frameIndex);
+    // Indicate that the back buffer will now be used to present.
+//    lightingPass->commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_backBuffers[m_frameIndex].Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PRESENT));
+    ThrowIfFailed(lightingPass->commandList->Close());
 }
 
 void BasicGameEngine::WaitForPreviousFrame()
@@ -780,15 +854,15 @@ void BasicGameEngine::WaitForComputeTask()
     // maximize GPU utilization.
 
     // Signal and increment the fence value.
-    const UINT64 fence = m_fenceValueCompute;
-    ThrowIfFailed(computeCommandQueue->Signal(m_fenceCompute.Get(), fence));
-    m_fenceValueCompute++;
+    const UINT64 fence = m_fenceValue;
+    ThrowIfFailed(computeCommandQueue->Signal(m_fence.Get(), fence));
+    m_fenceValue++;
 
     // Wait until the previous frame is finished.
-    if (m_fenceCompute->GetCompletedValue() < fence)
+    if (m_fence->GetCompletedValue() < fence)
     {
-        ThrowIfFailed(m_fenceCompute->SetEventOnCompletion(fence, m_fenceEventCompute));
-        WaitForSingleObject(m_fenceEventCompute, INFINITE);
+        ThrowIfFailed(m_fence->SetEventOnCompletion(fence, m_fenceEvent));
+        WaitForSingleObject(m_fenceEvent, INFINITE);
     }
 }
 

@@ -374,12 +374,9 @@ PSOutput GBufferRenderTargets(PSInput vsOut) : SV_Target {
 
     PSOutput psOutput;
 
-    psOutput.albedo.xyz = albedo;
-    psOutput.albedo.a = alpha;
-    psOutput.normal.xyz = normals;
-    psOutput.roughnessMetallicAO.r = roughness;
-    psOutput.roughnessMetallicAO.g = metallic;
-    psOutput.roughnessMetallicAO.b = occlusion;
+    psOutput.albedo = float4(albedo, alpha);
+    psOutput.normal = float4(normals, 1);
+    psOutput.roughnessMetallicAO = float4(roughness, metallic, occlusion, 1);
 
     return psOutput;
 }

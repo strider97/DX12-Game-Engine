@@ -124,8 +124,8 @@ void BufferManager::loadBufferViews(tinygltf::Model &model)
 				meshPrimitives.push_back(meshPrimitive);
 		}
 	}
-	meshPrimitives.insert(meshPrimitives.end(), 
-	meshPrimitivesTransparent.begin(), meshPrimitivesTransparent.end());
+	// meshPrimitives.insert(meshPrimitives.end(), 
+	// 	meshPrimitivesTransparent.begin(), meshPrimitivesTransparent.end());
 }
 
 
