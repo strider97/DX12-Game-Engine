@@ -3,9 +3,10 @@
 #include "ComputePipeline.h"
 #include "BufferManager.h"
 
-struct GBufferResources {
-    ComPtr<ID3D12DescriptorHeap>* rtvHeap;
-    ComPtr<ID3D12DescriptorHeap>* dsvHeap;
+struct IBLResources {
+    D3D12_GPU_DESCRIPTOR_HANDLE lut;
+    D3D12_GPU_DESCRIPTOR_HANDLE irradianceMap;
+    D3D12_GPU_DESCRIPTOR_HANDLE preFilterEnvMap;
 };
 
 class LightingPassCompute :
@@ -16,16 +17,14 @@ public:
         ComPtr<ID3D12CommandAllocator> &commandAllocator)
             : ComputePipeline(shaderFile, shaderName, device, commandAllocator) {}
 
-    ComPtr<IDXGISwapChain3> swapChain;
-    GBufferResources gBufferResources;
     Texture backBufferTextures[2];
     ComPtr<ID3D12DescriptorHeap> backBuffersHeap;
     UINT numBackBuffers = 2;
     UINT cbvSrvUavHeapDescriptorSize;
     ComPtr<ID3D12DescriptorHeap> rtvHeap;
     ComPtr<ID3D12DescriptorHeap> dsvHeap;
-    D3D12_GPU_DESCRIPTOR_HANDLE rtvGpuHandle;
-    D3D12_GPU_DESCRIPTOR_HANDLE dsvGpuHandle;
+    ComPtr<ID3D12DescriptorHeap> cbvHeap;
+    IBLResources iblResources;
 
     virtual void loadPipeline() override;
     virtual void loadResources() override;
@@ -33,16 +32,13 @@ public:
     virtual void executeTasks() override;
     void executeTasks(UINT currentFrameIndex);
 
-    void setResources(ComPtr<IDXGISwapChain3> &swapChain,
-        ComPtr<ID3D12DescriptorHeap> &rtvHeap, ComPtr<ID3D12DescriptorHeap> &dsvHeap, 
-        D3D12_GPU_DESCRIPTOR_HANDLE rtvGpuHandle, D3D12_GPU_DESCRIPTOR_HANDLE dsvGpuHandle)
+    void setResources(ComPtr<ID3D12DescriptorHeap> &rtvHeap, ComPtr<ID3D12DescriptorHeap> &dsvHeap, 
+        ComPtr<ID3D12DescriptorHeap> &cbvHeap, IBLResources &iblResources)
     {
-        this->gBufferResources = gBufferResources;
-        this->swapChain = swapChain;
         this->rtvHeap = rtvHeap;
         this->dsvHeap = dsvHeap;
-        this->rtvGpuHandle = rtvGpuHandle;
-        this->dsvGpuHandle = dsvGpuHandle;
+        this->cbvHeap = cbvHeap;
+        this->iblResources = iblResources;
     }
 };
 

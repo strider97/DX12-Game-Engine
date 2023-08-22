@@ -62,7 +62,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow)
 {   
     if (GetModuleHandle(L"WinPixGpuCapturer.dll") == 0)
     {
-        LoadLibrary(GetLatestWinPixGpuCapturerPath().c_str());
+       LoadLibrary(GetLatestWinPixGpuCapturerPath().c_str());
     }
     BasicGameEngine sample(1366, 768, L"Basic Game Engine");
     return Win32Application::Run(&sample, hInstance, nCmdShow);

@@ -5,6 +5,7 @@ cbuffer SceneConstantBuffer : register(b0)
 {
     float4x4 PV;
     float4x4 LPV;
+    float4x4 invPV;
     float3 eye;
     float3 lightDir;
 };
@@ -371,6 +372,8 @@ PSOutput GBufferRenderTargets(PSInput vsOut) : SV_Target {
     float3 tangent = vsOut.tangent.xyz;
     normals = 2 * normals - 1;
     normals = vsOut.tangent.xyz * normals.x + vsOut.biTangent * normals.y + vsOut.normal * normals.z;
+
+    normals = (normals + 1)/2.0f;
 
     PSOutput psOutput;
 

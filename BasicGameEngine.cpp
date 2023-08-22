@@ -60,10 +60,11 @@ void BasicGameEngine::OnInit()
 
     lightingPass = new LightingPassCompute(
         GetAssetFullPath(L"LightingCompute.hlsl").c_str(), "LightingPass", m_device, m_computeCommandAllocator);
-
-    lightingPass->setResources(m_swapChain, m_gbufferRtvHeap, m_gbufferDsvHeap, 
-        m_gbufferRtvHeap->GetGPUDescriptorHandleForHeapStart(), 
-        m_gbufferDsvHeap->GetGPUDescriptorHandleForHeapStart());
+    IBLResources iblResources;
+    iblResources.irradianceMap = skyboxIrradianceMap->textureGpuHandle;
+    iblResources.lut = checkerboardPipeline->textureGpuHandle;
+    iblResources.preFilterEnvMap = preFilterEnvMap->textureGpuHandle;
+    lightingPass->setResources(m_gbufferRtvHeap, m_gbufferDsvHeap, m_cbvHeap, iblResources);
     lightingPass->loadPipeline();
     ThrowIfFailed(lightingPass->commandList->Close());
 
@@ -103,18 +104,6 @@ void BasicGameEngine::LoadPipeline()
     ComPtr<IDXGIFactory4> factory;
     ThrowIfFailed(CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&factory)));
 
-    if (m_useWarpDevice)
-    {
-        ComPtr<IDXGIAdapter> warpAdapter;
-        ThrowIfFailed(factory->EnumWarpAdapter(IID_PPV_ARGS(&warpAdapter)));
-
-        ThrowIfFailed(D3D12CreateDevice(
-            warpAdapter.Get(),
-            D3D_FEATURE_LEVEL_11_0,
-            IID_PPV_ARGS(&m_device)
-            ));
-    }
-    else
     {
         ComPtr<IDXGIAdapter1> hardwareAdapter;
         GetHardwareAdapter(factory.Get(), &hardwareAdapter);
@@ -233,6 +222,11 @@ void BasicGameEngine::LoadPipeline()
                 )
             );
         }
+    }
+
+    {
+        swapChain->GetBuffer(0, IID_PPV_ARGS(m_backBuffers[0].GetAddressOf()));
+        swapChain->GetBuffer(1, IID_PPV_ARGS(m_backBuffers[1].GetAddressOf()));
     }
 
     // Create frame resources.
@@ -612,7 +606,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/wood_things.glb", model);
+    GLTF_Loader::loadGltf("./Models/sponza.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -636,6 +630,7 @@ void BasicGameEngine::OnUpdate()
     const float offsetBounds = 1.25;
     m_constantBufferData.PV = XMMatrixMultiply( *(m_camera.viewMatrix()), m_projectionMatrix );
     m_constantBufferData.LPV = directionLight.lightViewProjectionMatrix;
+    m_constantBufferData.invPV = XMMatrixInverse(nullptr, m_constantBufferData.PV);
     m_constantBufferData.eye = { 
         XMVectorGetX(m_camera.eye), 
         XMVectorGetY(m_camera.eye), 
@@ -813,15 +808,26 @@ void BasicGameEngine::PopulateCommandList()
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_renderTargets[m_frameIndex*3 + 2].Get(), D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_GENERIC_READ));
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_depthStencilBuffer.Get(), D3D12_RESOURCE_STATE_DEPTH_WRITE, D3D12_RESOURCE_STATE_GENERIC_READ));
 
-    ThrowIfFailed(m_commandList->Close());
+    // ThrowIfFailed(m_commandList->Close());
     
     ThrowIfFailed(m_computeCommandAllocator->Reset());
     ThrowIfFailed(lightingPass->commandList->Reset(m_computeCommandAllocator.Get(), lightingPass->computePSO.Get()));
-//    lightingPass->commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_backBuffers[m_frameIndex].Get(), D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_UNORDERED_ACCESS));
     lightingPass->executeTasks(m_frameIndex);
-    // Indicate that the back buffer will now be used to present.
-//    lightingPass->commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(m_backBuffers[m_frameIndex].Get(), D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_PRESENT));
     ThrowIfFailed(lightingPass->commandList->Close());
+
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+        m_backBuffers[m_frameIndex].Get(), 
+        D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST));
+
+    m_commandList->CopyResource(m_backBuffers[m_frameIndex].Get(), 
+        lightingPass->backBufferTextures[m_frameIndex].resource.Get());
+    
+    // Indicate that the back buffer will now be used to present.
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+        m_backBuffers[m_frameIndex].Get(), 
+        D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_PRESENT));
+
+    ThrowIfFailed(m_commandList->Close());
 }
 
 void BasicGameEngine::WaitForPreviousFrame()

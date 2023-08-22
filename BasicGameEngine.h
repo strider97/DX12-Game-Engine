@@ -81,10 +81,11 @@ private:
     {
         DirectX::XMMATRIX PV;
         DirectX::XMMATRIX LPV;
+        DirectX::XMMATRIX invPV;
         XMFLOAT3 eye;
         float pad;
         XMFLOAT3 light;
-        float padding[25]; // Padding so the constant buffer is 256-byte aligned.
+        float padding[9]; // Padding so the constant buffer is 256-byte aligned.
     };
     static_assert((sizeof(SceneConstantBuffer) % 256) == 0, "Constant Buffer size must be 256-byte aligned");
 

@@ -48,6 +48,8 @@ void LightingPassCompute::loadResources()
                                     D3D12_RESOURCE_STATE_COMMON, nullptr,
                                     IID_PPV_ARGS(backBufferTextures[1].resource.GetAddressOf()));
 
+    
+
     CD3DX12_CPU_DESCRIPTOR_HANDLE hDescriptor(backBuffersHeap -> GetCPUDescriptorHandleForHeapStart());
     D3D12_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
     uavDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
@@ -65,18 +67,27 @@ void LightingPassCompute::loadResources()
 }
 
 void LightingPassCompute::createRootSignature() {
-    CD3DX12_ROOT_PARAMETER1 slotRootParameter[3];
-    CD3DX12_DESCRIPTOR_RANGE1 range;
-    range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
-    slotRootParameter[0].InitAsDescriptorTable(1, &range);
-    
-    CD3DX12_DESCRIPTOR_RANGE1 range2;
-    range2.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0);
-    slotRootParameter[1].InitAsDescriptorTable(1, &range2);
+    CD3DX12_ROOT_PARAMETER1 rootParameters[7];
+    CD3DX12_DESCRIPTOR_RANGE1 ranges[7];
 
-    CD3DX12_DESCRIPTOR_RANGE1 range3;
-    range3.Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
-    slotRootParameter[2].InitAsDescriptorTable(1, &range3);
+    ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
+    rootParameters[0].InitAsDescriptorTable(1, &ranges[0]);
+    
+    ranges[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 3, 0);
+    rootParameters[1].InitAsDescriptorTable(1, &ranges[1]);
+
+    ranges[2].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 3);
+    rootParameters[2].InitAsDescriptorTable(1, &ranges[2]);
+    
+    ranges[3].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0, 0, D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC);
+    rootParameters[3].InitAsDescriptorTable(1, &ranges[3], D3D12_SHADER_VISIBILITY_ALL);
+
+    ranges[4].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 4);
+    rootParameters[4].InitAsDescriptorTable(1, &ranges[4]);
+    ranges[5].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 5);
+    rootParameters[5].InitAsDescriptorTable(1, &ranges[5]);
+    ranges[6].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 6);
+    rootParameters[6].InitAsDescriptorTable(1, &ranges[6]);
 
     ComPtr<ID3DBlob> serializedRootSig = nullptr;
     ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -114,7 +125,7 @@ void LightingPassCompute::createRootSignature() {
 
     D3D12_STATIC_SAMPLER_DESC samplers[2] = { sampler, samplerExact };
 
-    rootSignatureDesc.Init_1_1(_countof(slotRootParameter), slotRootParameter, 2, samplers,
+    rootSignatureDesc.Init_1_1(_countof(rootParameters), rootParameters, 2, samplers,
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT);
 
     ComPtr<ID3DBlob> signature;
@@ -145,7 +156,11 @@ void LightingPassCompute::executeTasks(UINT currentFrameIndex) {
 
     commandList->SetComputeRootDescriptorTable(0, handleBackBuffers);
     commandList->SetComputeRootDescriptorTable(1, handleRtv);
-    commandList->SetComputeRootDescriptorTable(2, dsvGpuHandle);
+    commandList->SetComputeRootDescriptorTable(2, dsvHeap->GetGPUDescriptorHandleForHeapStart());
+    commandList->SetComputeRootDescriptorTable(3, cbvHeap->GetGPUDescriptorHandleForHeapStart());
+    commandList->SetComputeRootDescriptorTable(4, iblResources.lut);
+    commandList->SetComputeRootDescriptorTable(5, iblResources.irradianceMap);
+    commandList->SetComputeRootDescriptorTable(6, iblResources.preFilterEnvMap);
 
     const UINT dispatchWidth = (1366 + 32 - 1) / 32;
     const UINT dispatchHeight = (768 + 32 - 1) / 32;
