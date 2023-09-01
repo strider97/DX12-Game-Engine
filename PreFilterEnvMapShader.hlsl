@@ -13,7 +13,7 @@ cbuffer ConstantBuffer : register(b0)
     uint roughness_;
 };
 
-static const uint NumSamples = 2048;
+static const uint NumSamples = 1024 * 2;
 static const float InvNumSamples = 1.0 / float(NumSamples);
 
 Texture2D inputTexture : register(t0);
