@@ -24,6 +24,7 @@
 #include "Skybox.h"
 #include "PreFilterEnv.h"
 #include "LightingPassCompute.h"
+#include "SSRPass.h"
 
 using namespace DirectX;
 
@@ -143,6 +144,7 @@ private:
     SkyboxIrradiance* skyboxIrradianceMap;
     PreFilterEnv* preFilterEnvMap;
     LightingPassCompute* lightingPass;
+    SSRPass* ssrPass;
 
     DirectX::XMMATRIX m_projectionMatrix = XMMatrixPerspectiveFovRH(XMConvertToRadians(m_FoV), 16.0/9, 0.1f, 100.0f);
     Camera m_camera = Camera();

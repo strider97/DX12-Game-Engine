@@ -19,7 +19,7 @@ Texture2D depthMap : register(t3);
 Texture2D checkerBoardTexture : register(t4);
 Texture2D skyboxIrradianceTexture : register(t5);
 Texture2D preFilterEnvMapTexture : register(t6);
-Texture2D shadowMapTexture : register(t7);
+Texture2D diffuseTexture : register(t7);
 
 SamplerState gSampler : register(s0);
 SamplerState samplerPoint : register(s1);
@@ -71,20 +71,20 @@ float3 gammaToLinear(float3 color) {
 }
 
 float linearizeDepth(float depth)
-{
-    float near_plane = 0.0f;
-    float far_plane = 100.0f;
-    float z = depth;
-    return (2.0f * near_plane * far_plane) / (far_plane + near_plane - z * (far_plane - near_plane));
-}
+{   
+    float nearZ = 0.1f;
+    float farZ = 100.0f;
+    // Convert depth from [0, 1] to [-1, 1] (NDC space)
+    float ndcDepth = depth * 2.0 - 1.0;
+    // Linearize depth using the near and far planes
+    float linearDepth = 2.0 * nearZ * farZ / (farZ + nearZ - ndcDepth * (farZ - nearZ));
 
-float getShadowMultiplier(float4 fragposLightSpace) {
-    float3 projectionCoords = fragposLightSpace.xyz / fragposLightSpace.w;
-    projectionCoords.xy = projectionCoords.xy * 0.5f + 0.5f;
-    projectionCoords.y = 1 - projectionCoords.y;
-    float closestDepth = shadowMapTexture.Sample(gSampler, projectionCoords.xy).r;
-    float currentDepth = projectionCoords.z;
-    return (currentDepth - 0.0001f) > closestDepth ? 0.0f : 1.0f;
+    /*
+        z_ndc = 2.0 * depth - 1.0;
+        z_eye = 2.0 * n * f / (f + n - z_ndc * (f - n));
+    */
+    
+    return abs(linearDepth);
 }
 
 uint getRoughnessLOD(float roughness) {
@@ -245,34 +245,38 @@ float3 getNDCCoordinates(float3 pos) {
     return newPos.xyz;
 }
 
-float computeAO(float3 N, float3 pos) {
-    uint NUM_SAMPLES = 32;
-    float invNumSamples = 1.f / NUM_SAMPLES;
+float3 evaluateSSR(float3 normal, float3 pos, float3 v) {
+    uint MAX_ITER = 128;
+    float stepSize = 0.1;
+    float3 r = reflect(-v, normal);
+    // if(dot(r, v) > 0) {
+    //     return 0;
+    // }
+    float epsilon = 0.1f;
 
-    float3 S, T;
-	computeBasisVectors(N, S, T);
-    float numSamplesBelow = 0;
-    float epsilon = 0.00000f;
-    float R = 0.01f;
-
-    for(uint i=0; i< NUM_SAMPLES; ++i) {
-		float2 u1  = sampleHammersley(i, invNumSamples);
-		float2 u2  = sampleHammersley(i + NUM_SAMPLES, invNumSamples);
-		float3 sampledPos = tangentToWorld(sampleHemisphere(u1, u2), N, S, T);
-        sampledPos *= R;
-        sampledPos += pos;
-        sampledPos = getNDCCoordinates(sampledPos);
-        float sampledDepth = sampledPos.z;
-        float actualDepth = depthMap.SampleLevel(samplerPoint, sampledPos.xy, 0).r;
-        if(actualDepth + epsilon < sampledDepth)
-            numSamplesBelow +=1;
-	}
-
-    return 1 - numSamplesBelow / NUM_SAMPLES;
+    float3 p0 = pos + normal * 0.001;
+    float3 p1 = p0;
+    for(int i=0; i<MAX_ITER; i++) {
+        p1 = p0 + r * stepSize * (i + 1);
+        float3 ndcP1 = getNDCCoordinates(p1);
+        if(ndcP1.x < 0 || ndcP1.y < 0 || ndcP1.y > 1 || ndcP1.x > 1)
+            return 0;
+        float depthP1 = ndcP1.z;
+        float2 uvP1 = ndcP1.xy;
+        float actualDepth = depthMap.SampleLevel(samplerPoint, uvP1, 0).r;
+        depthP1 = linearizeDepth(depthP1);
+        actualDepth = linearizeDepth(actualDepth);
+        
+        if(actualDepth < depthP1 && (actualDepth + epsilon) > depthP1) {
+            float3 Li = diffuseTexture.SampleLevel(samplerPoint, uvP1, 0).rgb;
+            return Li;
+        }
+    }
+    return 0;
 }
 
 [numthreads(32, 32, 1)]
-void LightingPass( uint3 DTid : SV_DispatchThreadID )
+void SSRPass( uint3 DTid : SV_DispatchThreadID )
 {	
 	uint outputWidth, outputHeight;
 	renderTarget.GetDimensions(outputWidth, outputHeight);
@@ -281,10 +285,10 @@ void LightingPass( uint3 DTid : SV_DispatchThreadID )
 	}
 
     float2 uv = (DTid.xy + 0.5f) / float2(outputWidth, outputHeight);
-	float4 albedo4 = albedoMapTexture.SampleLevel(samplerPoint, uv, 0);
+	float3 diffuse = diffuseTexture.SampleLevel(samplerPoint, uv, 0).rgb;
 	float3 normals = normalsTexture.SampleLevel(samplerPoint, uv, 0).rgb;
     if(length(normals) < 0.1f) {
-        renderTarget[DTid.xy] = albedo4;
+        renderTarget[DTid.xy] = float4(diffuse, 1);
         return;
     }
 
@@ -294,77 +298,14 @@ void LightingPass( uint3 DTid : SV_DispatchThreadID )
 	float3 worldPos = calculateWorldPosition(depth, uv);
     float roughness = rmAO.r;
     float metallic = rmAO.g;
-    float occlusion = rmAO.b;
-    float lightIntensity = 1.f;
 
-    float3 albedo = albedo4.rgb;
-
-    float3 l = lightDir;
     float3 v = normalize(eye - worldPos);
-    float3 h = normalize(l + v);
     float3 n = normalize(normals);
-    float3 r = reflect(-v, n);
+    float3 ssr = 0;
+    if(roughness < 0.1f)
+        ssr = evaluateSSR(n, worldPos, v);
 
-    float ao = computeAO(normals, worldPos);
-    // float3 ao3 = ao;
-    // ao3 = linearToSRGB(ao3);
-    // renderTarget[DTid.xy] = float4(ao3, 1);
-    // return;
-
-    float3 F0 = 0.04f; 
-    F0 = lerp(F0, albedo, metallic);
-
-    float NDF = DistributionGGX(n, h, roughness);   
-    float G   = GeometrySmith(n, v, l, roughness);      
-    float3 F  = fresnelSchlick(clamp(dot(h, v), 0.0, 1.0), F0);
-
-    float3 kS = F;
-    float3 kD = 1 - kS;
-    kD *= 1.0f - metallic;
-    
-    float3 numerator    = NDF * G * F;
-    float denominator = 4.0f * max(dot(n, v), 0.0f) * max(dot(n, l), 0.0f) + 0.0001f;
-    float3 specular     = numerator / denominator;  
-        
-    // // add to outgoing radiance Lo
-    float NdotL = max(dot(n, l), 0.0f);
-    
-    // renderTarget[DTid.xy] = float4(NdotL, NdotL, NdotL, 1);
-    // return;
-
-    uint roughnessLOD = getRoughnessLOD(roughness);
-    float2 preFilterEnvMapUV = directionToEquirectangularUV(r);
-    preFilterEnvMapUV.y /= 2.0f;
-    if (roughnessLOD > 0) {
-        float maxUVy = 2046.5/4096.0f;
-
-        uint powerOf2 = computePowerOfTwo(roughnessLOD);
-        preFilterEnvMapUV /= powerOf2;
-        maxUVy /= powerOf2;
-
-        float yOffset = (getYOffsetForPreFilterEnv(roughnessLOD) + roughnessLOD)/2048.0f;
-        preFilterEnvMapUV.y += yOffset;
-        maxUVy += yOffset;
-
-        uint w = 2048 / computePowerOfTwo(roughnessLOD);
-        float maxUVx = (w-1.5f)/2048.0f;
-        preFilterEnvMapUV = float2(min(maxUVx, preFilterEnvMapUV.x), min(maxUVy, preFilterEnvMapUV.y));
-    }
-    float3 envMapLi = preFilterEnvMapTexture.SampleLevel(gSampler, float2(preFilterEnvMapUV.x, preFilterEnvMapUV.y), 0).rgb;
-    float nDotV = max(dot(n, v), 0.0f);
-    float2 envBRDF = checkerBoardTexture.SampleLevel(gSampler, float2(roughness, nDotV), 0).rg;
-    specular = envMapLi * (F * envBRDF.x + envBRDF.y);
-
-    float2 irradianceMapUV = directionToEquirectangularUV(n);
-    float3 irradianceFromMap = skyboxIrradianceTexture.SampleLevel(gSampler, float2(irradianceMapUV.x, irradianceMapUV.y), 0).rgb;
-
-    float3 ambient = kD * irradianceFromMap * albedo;
-    // ambient *= ao;
-    // ambient *= occlusion;
-    float3 radiance = lightIntensity * ambient;
-    radiance = albedo;
-    radiance *= ao;
-    radiance = linearToSRGB(radiance);
-
+    float3 radiance = ssr + diffuse;
+	
     renderTarget[DTid.xy] = float4(radiance, 1);
 }

@@ -68,6 +68,12 @@ void BasicGameEngine::OnInit()
     lightingPass->loadPipeline();
     ThrowIfFailed(lightingPass->commandList->Close());
 
+    ssrPass = new SSRPass(
+        GetAssetFullPath(L"ssrCompute.hlsl").c_str(), "SSRPass", m_device, m_computeCommandAllocator);
+    ssrPass->setResources(m_gbufferRtvHeap, m_gbufferDsvHeap, m_cbvHeap, lightingPass->backBuffersHeap, iblResources);
+    ssrPass->loadPipeline();
+    ThrowIfFailed(ssrPass->commandList->Close());
+
     ThrowIfFailed(m_device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&m_fenceCompute)));
     m_fenceValueCompute = 1;
     m_fenceEventCompute = CreateEvent(nullptr, FALSE, FALSE, nullptr);
@@ -606,7 +612,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/taxi.glb", model);
+    GLTF_Loader::loadGltf("./Models/sponza2.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -666,7 +672,9 @@ void BasicGameEngine::OnRender()
 
     WaitForPreviousFrame();
 
-    ID3D12CommandList* computeCommandLists[] = { lightingPass->commandList.Get() };
+    ID3D12CommandList* computeCommandLists[] = { 
+        lightingPass->commandList.Get(), ssrPass->commandList.Get() 
+    };
     computeCommandQueue->ExecuteCommandLists(_countof(computeCommandLists), computeCommandLists);
     WaitForComputeTask();
 }
@@ -816,11 +824,19 @@ void BasicGameEngine::PopulateCommandList()
     ThrowIfFailed(lightingPass->commandList->Close());
 
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
+        lightingPass->backBufferTextures[m_frameIndex].resource.Get(), 
+        D3D12_RESOURCE_STATE_UNORDERED_ACCESS, D3D12_RESOURCE_STATE_GENERIC_READ));
+
+    ThrowIfFailed(ssrPass->commandList->Reset(m_computeCommandAllocator.Get(), ssrPass->computePSO.Get()));
+    ssrPass->executeTasks(m_frameIndex);
+    ThrowIfFailed(ssrPass->commandList->Close());
+
+    m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
         m_backBuffers[m_frameIndex].Get(), 
         D3D12_RESOURCE_STATE_PRESENT, D3D12_RESOURCE_STATE_COPY_DEST));
 
     m_commandList->CopyResource(m_backBuffers[m_frameIndex].Get(), 
-        lightingPass->backBufferTextures[m_frameIndex].resource.Get());
+        ssrPass->backBufferTextures[m_frameIndex].resource.Get());
     
     // Indicate that the back buffer will now be used to present.
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
