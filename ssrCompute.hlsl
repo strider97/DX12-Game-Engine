@@ -245,35 +245,100 @@ float3 getNDCCoordinates(float3 pos) {
     return newPos.xyz;
 }
 
-float3 evaluateSSR(float3 normal, float3 pos, float3 v) {
-    uint MAX_ITER = 256;
-    float WORLD_BOUNDS = 20;
-    float stepSize = 0.1;
-    float3 r = reflect(-v, normal);
-    // if(dot(r, v) > 0) {
-    //     return 0;
-    // }
-    float thickness = 0.1f;
+float3 getReflectionDirInTS(float3 p, float3 r) {
+    float3 pTemp = p + 5 * r;
+    float3 pTempTS = getNDCCoordinates(pTemp);
+    float3 pTS = getNDCCoordinates(p);
+    return normalize(pTempTS - pTS);
+}
 
-    float3 p0 = pos + normal * 0.001;
+float3 binarySearchDepth(float3 minBounds, float3 maxBounds, float depth) {
+    uint BIN_SEARCH_ITER = 12;
+    for(int i=0; i< BIN_SEARCH_ITER; i++) {
+        float3 mid = (minBounds + maxBounds) / 2;
+        float midDepth = depthMap.SampleLevel(samplerPoint, mid.xy, 0).r;
+        if(mid.z >= midDepth)
+            maxBounds = mid;
+        else
+            minBounds = mid;
+
+    }
+    return (minBounds + maxBounds) / 2;
+}
+
+// Function to find the intersection point of a ray with a square
+float findRaySquareIntersectionDist(float3 origin, float3 direction) {
+    float tx0 = (0 - origin.x)/direction.x;
+    float tx1 = (1 - origin.x)/direction.x;
+    float ty1 = (0 - origin.y)/direction.y;
+    float ty0 = (1 - origin.y)/direction.y;
+    float tz0 = -(0 - origin.z)/direction.z;
+    float tz1 = -(1 - origin.z)/direction.z;
+
+    float tx = tx0 > 0 ? tx0 : tx1;
+    float ty = ty0 > 0 ? ty0 : ty1;
+    float tz = tz0 > 0 ? tz0 : tz1;
+
+    float3 px = origin + direction * tx;
+    float3 py = origin + direction * ty;
+    float3 pz = origin + direction * tz;
+
+    float distX = length(origin - px);
+    float distY = length(origin - py);
+    float distZ = length(origin - pz);
+
+    return min(distX, min(distY, distZ));
+}
+
+float3 evaluateSSR(float3 normal, float3 pos, float3 v, float2 currentUV, uint2 screenDim) {
+    uint MAX_ITER = 128;
+    float WORLD_BOUNDS = 20;
+    float stepSize = 1.f/MAX_ITER;
+    float3 r = reflect(-v, normal);
+    float3 reflectionDirTS = getReflectionDirInTS(pos, r);
+    float MAX_THICKNESS = 0.1f;
+    // return reflectionDirTS;
+
+    float3 p0 = getNDCCoordinates(pos);
     float3 p1 = p0;
+    float maxLengthRayIntersection = findRaySquareIntersectionDist(p0, reflectionDirTS);
+    float3 reflectionEndPointTS = p0 + maxLengthRayIntersection * reflectionDirTS;
+    float3 dp = reflectionEndPointTS - p0;
+    
+    int2 p0ScreenPos = p0.xy * screenDim;
+    int2 endScreenPos = reflectionEndPointTS.xy * screenDim;
+    int2 pixelDirection = endScreenPos - p0ScreenPos;
+    uint maxPixelsCovered = max(abs(pixelDirection.x), abs(pixelDirection.y));
+    dp /= maxPixelsCovered;
+    dp *= 10.f;
+
+    // return abs(reflectionEndPointTS);
+
+    // dp = normalize(dp);
+
     for(int i=0; i<MAX_ITER; i++) {
-        p1 = p0 + r * stepSize * (i + 1);
-        float3 ndcP1 = getNDCCoordinates(p1);
-        if(p1.x > WORLD_BOUNDS || p1.y > WORLD_BOUNDS || p1.z > WORLD_BOUNDS )
-            return 0;
+        p1 = p0 + dp;
+        float3 ndcP1 = p1;// getNDCCoordinates(p1);
+        // if(abs(p1.x) > WORLD_BOUNDS || abs(p1.y) > WORLD_BOUNDS || abs(p1.z) > WORLD_BOUNDS )
+        //     return 0;
         if(ndcP1.x < 0 || ndcP1.y < 0 || ndcP1.y > 1 || ndcP1.x > 1 )
             return 0;
-        float depthP1 = ndcP1.z;
         float2 uvP1 = ndcP1.xy;
+        float depthP1 = ndcP1.z;
         float actualDepth = depthMap.SampleLevel(samplerPoint, uvP1, 0).r;
-        depthP1 = linearizeDepth(depthP1);
-        actualDepth = linearizeDepth(actualDepth);
-        
-        if(actualDepth < depthP1 && (actualDepth + thickness) > depthP1) {
-            float3 Li = diffuseTexture.SampleLevel(samplerPoint, uvP1, 0).rgb;
+        if(actualDepth == 1.f)
+            continue;
+        float depthP1Linear = linearizeDepth(depthP1);
+        float actualDepthLinear = linearizeDepth(actualDepth);
+        float thickness = depthP1Linear - actualDepthLinear;
+        if(thickness >= 0 && thickness < MAX_THICKNESS) {
+            // return 1;
+            float2 uvSSR = binarySearchDepth(p0, p1, actualDepth).xy;
+            // uvSSR = currentUV.x > 0.5f ? uvP1 : uvSSR;
+            float3 Li = diffuseTexture.SampleLevel(samplerPoint, uvSSR, 0).rgb;
             return Li;
         }
+        p0 = p1;
     }
     return 0;
 }
@@ -305,10 +370,11 @@ void SSRPass( uint3 DTid : SV_DispatchThreadID )
     float3 v = normalize(eye - worldPos);
     float3 n = normalize(normals);
     float3 ssr = 0;
-    if(roughness < 2.1f)
-        ssr = evaluateSSR(n, worldPos, v);
+    if(roughness < 2.9f)
+        ssr = evaluateSSR(n, worldPos, v, uv, uint2(outputWidth, outputHeight));
 
-    float3 radiance = ssr * 0.3f + diffuse;
+    float3 radiance = 2 * ssr + diffuse;
+    radiance = linearToSRGB(radiance);
 	
     renderTarget[DTid.xy] = float4(radiance, 1);
 }

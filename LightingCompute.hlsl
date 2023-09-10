@@ -364,7 +364,7 @@ void LightingPass( uint3 DTid : SV_DispatchThreadID )
     float3 radiance = lightIntensity * ambient;
     radiance = albedo;
     radiance *= ao;
-    radiance = linearToSRGB(radiance);
+    // radiance = linearToSRGB(radiance);
 
     renderTarget[DTid.xy] = float4(radiance, 1);
 }
