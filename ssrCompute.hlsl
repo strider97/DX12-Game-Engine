@@ -246,20 +246,23 @@ float3 getNDCCoordinates(float3 pos) {
 }
 
 float3 evaluateSSR(float3 normal, float3 pos, float3 v) {
-    uint MAX_ITER = 128;
+    uint MAX_ITER = 256;
+    float WORLD_BOUNDS = 20;
     float stepSize = 0.1;
     float3 r = reflect(-v, normal);
     // if(dot(r, v) > 0) {
     //     return 0;
     // }
-    float epsilon = 0.1f;
+    float thickness = 0.1f;
 
     float3 p0 = pos + normal * 0.001;
     float3 p1 = p0;
     for(int i=0; i<MAX_ITER; i++) {
         p1 = p0 + r * stepSize * (i + 1);
         float3 ndcP1 = getNDCCoordinates(p1);
-        if(ndcP1.x < 0 || ndcP1.y < 0 || ndcP1.y > 1 || ndcP1.x > 1)
+        if(p1.x > WORLD_BOUNDS || p1.y > WORLD_BOUNDS || p1.z > WORLD_BOUNDS )
+            return 0;
+        if(ndcP1.x < 0 || ndcP1.y < 0 || ndcP1.y > 1 || ndcP1.x > 1 )
             return 0;
         float depthP1 = ndcP1.z;
         float2 uvP1 = ndcP1.xy;
@@ -267,7 +270,7 @@ float3 evaluateSSR(float3 normal, float3 pos, float3 v) {
         depthP1 = linearizeDepth(depthP1);
         actualDepth = linearizeDepth(actualDepth);
         
-        if(actualDepth < depthP1 && (actualDepth + epsilon) > depthP1) {
+        if(actualDepth < depthP1 && (actualDepth + thickness) > depthP1) {
             float3 Li = diffuseTexture.SampleLevel(samplerPoint, uvP1, 0).rgb;
             return Li;
         }
@@ -302,10 +305,10 @@ void SSRPass( uint3 DTid : SV_DispatchThreadID )
     float3 v = normalize(eye - worldPos);
     float3 n = normalize(normals);
     float3 ssr = 0;
-    if(roughness < 0.1f)
+    if(roughness < 2.1f)
         ssr = evaluateSSR(n, worldPos, v);
 
-    float3 radiance = ssr + diffuse;
+    float3 radiance = ssr * 0.3f + diffuse;
 	
     renderTarget[DTid.xy] = float4(radiance, 1);
 }
