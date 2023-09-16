@@ -17,7 +17,9 @@ public:
     ComPtr<ID3D12DescriptorHeap> dsvHeap;
     ComPtr<ID3D12DescriptorHeap> cbvHeap;
     ComPtr<ID3D12DescriptorHeap> diffuseHeap;
+    ComPtr<ID3D12DescriptorHeap> noiseHeap;
     IBLResources iblResources;
+    Texture* noiseTexture;
 
     virtual void loadPipeline() override;
     virtual void loadResources() override;
@@ -26,13 +28,15 @@ public:
     void executeTasks(UINT currentFrameIndex);
 
     void setResources(ComPtr<ID3D12DescriptorHeap> &rtvHeap, ComPtr<ID3D12DescriptorHeap> &dsvHeap, 
-        ComPtr<ID3D12DescriptorHeap> &cbvHeap, ComPtr<ID3D12DescriptorHeap> &diffuseHeap, IBLResources &iblResources)
+        ComPtr<ID3D12DescriptorHeap> &cbvHeap, ComPtr<ID3D12DescriptorHeap> &diffuseHeap, IBLResources &iblResources,
+        Texture* noiseTexture)
     {
         this->rtvHeap = rtvHeap;
         this->dsvHeap = dsvHeap;
         this->cbvHeap = cbvHeap;
         this->iblResources = iblResources;
         this->diffuseHeap = diffuseHeap;
+        this->noiseTexture = noiseTexture;
     }
 };
 

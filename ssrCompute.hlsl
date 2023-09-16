@@ -20,8 +20,9 @@ Texture2D checkerBoardTexture : register(t4);
 Texture2D skyboxIrradianceTexture : register(t5);
 Texture2D preFilterEnvMapTexture : register(t6);
 Texture2D diffuseTexture : register(t7);
+Texture2D noiseTexture : register(t8);
 
-SamplerState gSampler : register(s0);
+SamplerState samplerLinear : register(s0);
 SamplerState samplerPoint : register(s1);
 
 float3 calculateWorldPosition(float z, float2 uv)
@@ -211,6 +212,50 @@ float3 tangentToWorld(const float3 v, const float3 N, const float3 S, const floa
 	return S * v.x + T * v.y + N * v.z;
 }
 
+float3 sampleToWorld(in float phi, in float cos_theta, in float sin_theta, in float3 N)
+{
+    float3 H;
+
+    H.x = sin_theta * cos(phi);
+    H.y = sin_theta * sin(phi);
+    H.z = cos_theta;
+
+    float3 up_vec = abs(N.z) < 0.999 ? float3(0,0,1) : float3(1,0,0);
+    float3 tangent_x = normalize(cross(up_vec, N));
+    float3 tangent_y = cross(N, tangent_x);
+
+    return tangent_x * H.x + tangent_y * H.y + N * H.z;
+}
+
+// Importance sample a GGX specular function
+float3 importanceSampleGGX(in float2 xi, in float a, in float3 N)
+{
+    float phi = 2 * PI * xi.x;
+    float cos_theta = sqrt((1 - xi.y)/(1 + (a*a - 1) * xi.y));
+    float sin_theta = sqrt(1 - cos_theta * cos_theta);
+
+    return sampleToWorld(phi, cos_theta, sin_theta, N);
+}
+
+float3 sampleGGXVisible(float3 N, float roughness, float2 rand) {
+    float a2 = roughness * roughness;
+    float cosTheta = sqrt((1.0 - rand.x) / (1.0 + (a2 - 1.0) * rand.x));
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+    float phi = 2.0 * PI * rand.y;
+
+    // Calculate the sampled normal in tangent space
+    float3 H;
+    H.x = sinTheta * cos(phi);
+    H.y = sinTheta * sin(phi);
+    H.z = cosTheta;
+
+    // Transform the sampled normal from tangent space to world space
+    float3 UpVector = abs(N.z) < 0.999 ? float3(0, 0, 1) : float3(1, 0, 0);
+    float3 TangentX = normalize(cross(UpVector, N));
+    float3 TangentY = cross(N, TangentX);
+    return normalize(TangentX * H.x + TangentY * H.y + N * H.z);
+}
+
 // Sample i-th point from Hammersley point set of NumSamples points total.
 float2 sampleHammersley(uint i, float invNumSamples)
 {
@@ -267,39 +312,44 @@ float3 binarySearchDepth(float3 minBounds, float3 maxBounds, float depth) {
 }
 
 // Function to find the intersection point of a ray with a square
-float findRaySquareIntersectionDist(float3 origin, float3 direction) {
-    float tx0 = (0 - origin.x)/direction.x;
-    float tx1 = (1 - origin.x)/direction.x;
-    float ty1 = (0 - origin.y)/direction.y;
-    float ty0 = (1 - origin.y)/direction.y;
-    float tz0 = -(0 - origin.z)/direction.z;
-    float tz1 = -(1 - origin.z)/direction.z;
+float findRaySquareIntersectionDist(float3 outSamplePosInTS, float3 outReflDirInTS) {
+    // float tx0 = (0 - origin.x)/direction.x;
+    // float tx1 = (1 - origin.x)/direction.x;
+    // float ty1 = (0 - origin.y)/direction.y;
+    // float ty0 = (1 - origin.y)/direction.y;
+    // float tz0 = -(0 - origin.z)/direction.z;
+    // float tz1 = -(1 - origin.z)/direction.z;
 
-    float tx = tx0 > 0 ? tx0 : tx1;
-    float ty = ty0 > 0 ? ty0 : ty1;
-    float tz = tz0 > 0 ? tz0 : tz1;
+    // float tx = tx0 > 0 ? tx0 : tx1;
+    // float ty = ty0 > 0 ? ty0 : ty1;
+    // float tz = tz0 > 0 ? tz0 : tz1;
 
-    float3 px = origin + direction * tx;
-    float3 py = origin + direction * ty;
-    float3 pz = origin + direction * tz;
+    // float3 px = origin + direction * tx;
+    // float3 py = origin + direction * ty;
+    // float3 pz = origin + direction * tz;
 
-    float distX = length(origin - px);
-    float distY = length(origin - py);
-    float distZ = length(origin - pz);
+    // float distX = length(origin - px);
+    // float distY = length(origin - py);
+    // float distZ = length(origin - pz);
 
-    return min(distX, min(distY, distZ));
+    // return min(distX, min(distY, distZ));
+    float outMaxDistance;
+    outMaxDistance = outReflDirInTS.x>=0 ? (1 - outSamplePosInTS.x)/outReflDirInTS.x  : -outSamplePosInTS.x/outReflDirInTS.x;
+    outMaxDistance = min(outMaxDistance, outReflDirInTS.y<0 ? (-outSamplePosInTS.y/outReflDirInTS.y)  : ((1-outSamplePosInTS.y)/outReflDirInTS.y));
+    outMaxDistance = min(outMaxDistance, outReflDirInTS.z<0 ? (-outSamplePosInTS.z/outReflDirInTS.z) : ((1-outSamplePosInTS.z)/outReflDirInTS.z));
+    return outMaxDistance;
 }
 
 float3 evaluateSSR(float3 normal, float3 pos, float3 v, float2 currentUV, uint2 screenDim) {
-    uint MAX_ITER = 128;
+    uint MAX_ITER = 1024;
     float WORLD_BOUNDS = 20;
     float stepSize = 1.f/MAX_ITER;
     float3 r = reflect(-v, normal);
     float3 reflectionDirTS = getReflectionDirInTS(pos, r);
-    float MAX_THICKNESS = 0.1f;
+    float MAX_THICKNESS = 0.3f;
     // return reflectionDirTS;
 
-    float3 p0 = getNDCCoordinates(pos);
+    float3 p0 = getNDCCoordinates(pos + r * 0.001f);
     float3 p1 = p0;
     float maxLengthRayIntersection = findRaySquareIntersectionDist(p0, reflectionDirTS);
     float3 reflectionEndPointTS = p0 + maxLengthRayIntersection * reflectionDirTS;
@@ -309,8 +359,7 @@ float3 evaluateSSR(float3 normal, float3 pos, float3 v, float2 currentUV, uint2 
     int2 endScreenPos = reflectionEndPointTS.xy * screenDim;
     int2 pixelDirection = endScreenPos - p0ScreenPos;
     uint maxPixelsCovered = max(abs(pixelDirection.x), abs(pixelDirection.y));
-    dp /= maxPixelsCovered;
-    dp *= 10.f;
+    dp *= 1.f/maxPixelsCovered;
 
     // return abs(reflectionEndPointTS);
 
@@ -324,18 +373,29 @@ float3 evaluateSSR(float3 normal, float3 pos, float3 v, float2 currentUV, uint2 
         if(ndcP1.x < 0 || ndcP1.y < 0 || ndcP1.y > 1 || ndcP1.x > 1 )
             return 0;
         float2 uvP1 = ndcP1.xy;
-        float depthP1 = ndcP1.z;
-        float actualDepth = depthMap.SampleLevel(samplerPoint, uvP1, 0).r;
-        if(actualDepth == 1.f)
-            continue;
+        float depthP1 = abs(ndcP1.z);
         float depthP1Linear = linearizeDepth(depthP1);
+        if(depthP1Linear > 0.9f * 100.f)
+            return 0;
+        float actualDepth = depthMap.SampleLevel(samplerPoint, uvP1, 0).r;
+        if(actualDepth == 1.f) {
+            p0 = p1;
+            continue;
+        }
+        float3 normalAtP1 = normalsTexture.SampleLevel(samplerPoint, uvP1, 0).rgb;
+        normalAtP1 = 2 * normalAtP1 - 1.0f;
+        if(dot(r, normalAtP1) >= (-0.087155742f)) {
+            p0 = p1;
+            continue;
+        }
         float actualDepthLinear = linearizeDepth(actualDepth);
         float thickness = depthP1Linear - actualDepthLinear;
         if(thickness >= 0 && thickness < MAX_THICKNESS) {
             // return 1;
-            float2 uvSSR = binarySearchDepth(p0, p1, actualDepth).xy;
+            // float2 uvSSR = binarySearchDepth(p0, p1, actualDepth).xy;
             // uvSSR = currentUV.x > 0.5f ? uvP1 : uvSSR;
-            float3 Li = diffuseTexture.SampleLevel(samplerPoint, uvSSR, 0).rgb;
+            // return float3(uvSSR, 0);
+            float3 Li = diffuseTexture.SampleLevel(samplerPoint, uvP1, 0).rgb;
             return Li;
         }
         p0 = p1;
@@ -369,11 +429,33 @@ void SSRPass( uint3 DTid : SV_DispatchThreadID )
 
     float3 v = normalize(eye - worldPos);
     float3 n = normalize(normals);
-    float3 ssr = 0;
-    if(roughness < 2.9f)
-        ssr = evaluateSSR(n, worldPos, v, uv, uint2(outputWidth, outputHeight));
 
-    float3 radiance = 2 * ssr + diffuse;
+    // float2 xi = sampleHammersley(DTid.y * outputWidth + DTid.x, 1.f/(outputWidth * outputHeight));
+    float2 xi = noiseTexture.SampleLevel(samplerLinear, uv, 0).rg;
+    float2 xi1 = noiseTexture.SampleLevel(samplerLinear, 1-uv, 0).rg;
+    float2 xi2 = 1-xi;
+    float2 xi3 = xi.yx;
+    float2 xi4 = 1 - xi.yx;
+    xi = float2(xi.r, xi1.r);
+    // float3 h = importanceSampleGGX(xi, roughness * roughness, n);
+    float3 h = sampleGGXVisible(n, roughness * roughness, xi);
+    // float3 h2 = importanceSampleGGX(xi2, roughness * roughness, n);
+    // float3 h3 = importanceSampleGGX(xi3, roughness * roughness, n);
+    // float3 h4 = importanceSampleGGX(xi4, roughness * roughness, n);
+    
+
+    // float3 ssr = 0;
+    float3 specular = 0;
+    if(roughness < 2.9f && dot(n, float3(0, 1, 0)) > 0.9f) {
+        float3 ssr = evaluateSSR(n, worldPos, v, uv, uint2(outputWidth, outputHeight));
+        // float3 ssr2 = evaluateSSR(h2, worldPos, v, uv, uint2(outputWidth, outputHeight));
+        // float3 ssr3 = evaluateSSR(h3, worldPos, v, uv, uint2(outputWidth, outputHeight));
+        // float3 ssr4 = evaluateSSR(h4, worldPos, v, uv, uint2(outputWidth, outputHeight));
+        // specular = (ssr + ssr2 + ssr3 + ssr4) / 4;
+        specular = max(0, ssr);
+    }
+
+    float3 radiance = specular;// + diffuse;
     radiance = linearToSRGB(radiance);
 	
     renderTarget[DTid.xy] = float4(radiance, 1);

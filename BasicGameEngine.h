@@ -118,6 +118,7 @@ private:
     UINT m_dsvHeapDescriptorSize;
     Skybox* skybox;
     bool isFirstFrame = true;
+    Texture* noiseTexture;
        
     // App resources.
     ComPtr<ID3D12Resource> m_vertexBuffer;

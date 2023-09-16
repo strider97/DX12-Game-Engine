@@ -64,11 +64,26 @@ void SSRPass::loadResources()
 
     cbvSrvUavHeapDescriptorSize = 
         device->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    D3D12_DESCRIPTOR_HEAP_DESC noiseHeapDesc = {};
+    noiseHeapDesc.NumDescriptors = 1;
+    noiseHeapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    noiseHeapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+    ThrowIfFailed(device->CreateDescriptorHeap(&noiseHeapDesc, IID_PPV_ARGS(&noiseHeap)));
+
+    D3D12_SHADER_RESOURCE_VIEW_DESC imageDesc = {};
+    imageDesc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    imageDesc.Format = noiseTexture->resource.Get()->GetDesc().Format;
+    imageDesc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+    imageDesc.Texture2D.MostDetailedMip = 0;
+    imageDesc.Texture2D.MipLevels = 1;
+    imageDesc.Texture2D.ResourceMinLODClamp = 0.0f;
+    device->CreateShaderResourceView(noiseTexture->resource.Get(), &imageDesc, noiseHeap -> GetCPUDescriptorHandleForHeapStart());
 }
 
 void SSRPass::createRootSignature() {
-    CD3DX12_ROOT_PARAMETER1 rootParameters[8];
-    CD3DX12_DESCRIPTOR_RANGE1 ranges[8];
+    CD3DX12_ROOT_PARAMETER1 rootParameters[9];
+    CD3DX12_DESCRIPTOR_RANGE1 ranges[9];
 
     ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
     rootParameters[0].InitAsDescriptorTable(1, &ranges[0]);
@@ -90,6 +105,8 @@ void SSRPass::createRootSignature() {
     rootParameters[6].InitAsDescriptorTable(1, &ranges[6]);
     ranges[7].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 7);
     rootParameters[7].InitAsDescriptorTable(1, &ranges[7]);
+    ranges[8].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 8);
+    rootParameters[8].InitAsDescriptorTable(1, &ranges[8]);
 
     ComPtr<ID3DBlob> serializedRootSig = nullptr;
     ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -166,6 +183,7 @@ void SSRPass::executeTasks(UINT currentFrameIndex) {
     commandList->SetComputeRootDescriptorTable(5, iblResources.irradianceMap);
     commandList->SetComputeRootDescriptorTable(6, iblResources.preFilterEnvMap);
     commandList->SetComputeRootDescriptorTable(7, handleDiffuseHeap);
+    commandList->SetComputeRootDescriptorTable(8, noiseHeap->GetGPUDescriptorHandleForHeapStart());
 
     const UINT dispatchWidth = (1366 + 32 - 1) / 32;
     const UINT dispatchHeight = (768 + 32 - 1) / 32;
