@@ -75,6 +75,7 @@
     <ClInclude Include="PreFilterEnv.h" />
     <ClInclude Include="LightingPassCompute.h" />
     <ClInclude Include="SSRPass.h" />
+    <ClInclude Include="HiZDepthCompute.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -114,6 +115,7 @@
     <ClCompile Include="PreFilterEnv.cpp" />
     <ClCompile Include="LightingPassCompute.cpp" />
     <ClCompile Include="SSRPass.cpp" />
+    <ClCompile Include="HiZDepthCompute.cpp" />
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="shaders.hlsl">
@@ -138,6 +140,9 @@
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
     <CustomBuild Include="ssrCompute.hlsl">
+      <Filter>Assets\Shaders</Filter>
+    </CustomBuild>
+    <CustomBuild Include="HiZGenerateCompute.hlsl">
       <Filter>Assets\Shaders</Filter>
     </CustomBuild>
   </ItemGroup>

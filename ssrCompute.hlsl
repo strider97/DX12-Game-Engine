@@ -79,13 +79,8 @@ float linearizeDepth(float depth)
     float ndcDepth = depth * 2.0 - 1.0;
     // Linearize depth using the near and far planes
     float linearDepth = 2.0 * nearZ * farZ / (farZ + nearZ - ndcDepth * (farZ - nearZ));
-
-    /*
-        z_ndc = 2.0 * depth - 1.0;
-        z_eye = 2.0 * n * f / (f + n - z_ndc * (f - n));
-    */
     
-    return abs(linearDepth);
+    return linearDepth;
 }
 
 uint getRoughnessLOD(float roughness) {
@@ -341,7 +336,7 @@ float findRaySquareIntersectionDist(float3 outSamplePosInTS, float3 outReflDirIn
 }
 
 float3 evaluateSSR(float3 normal, float3 pos, float3 v, float2 currentUV, uint2 screenDim) {
-    uint MAX_ITER = 1024;
+    uint MAX_ITER = 512;
     float WORLD_BOUNDS = 20;
     float stepSize = 1.f/MAX_ITER;
     float3 r = reflect(-v, normal);
@@ -359,7 +354,7 @@ float3 evaluateSSR(float3 normal, float3 pos, float3 v, float2 currentUV, uint2 
     int2 endScreenPos = reflectionEndPointTS.xy * screenDim;
     int2 pixelDirection = endScreenPos - p0ScreenPos;
     uint maxPixelsCovered = max(abs(pixelDirection.x), abs(pixelDirection.y));
-    dp *= 1.f/maxPixelsCovered;
+    dp *= 2.f/maxPixelsCovered;
 
     // return abs(reflectionEndPointTS);
 
@@ -375,7 +370,7 @@ float3 evaluateSSR(float3 normal, float3 pos, float3 v, float2 currentUV, uint2 
         float2 uvP1 = ndcP1.xy;
         float depthP1 = abs(ndcP1.z);
         float depthP1Linear = linearizeDepth(depthP1);
-        if(depthP1Linear > 0.9f * 100.f)
+        if(depthP1Linear > 0.6f * 100.f)
             return 0;
         float actualDepth = depthMap.SampleLevel(samplerPoint, uvP1, 0).r;
         if(actualDepth == 1.f) {
@@ -423,6 +418,9 @@ void SSRPass( uint3 DTid : SV_DispatchThreadID )
     normals = 2 * normals - 1.0f;
 	float3 rmAO = roughnessMetallicAO.SampleLevel(samplerPoint, uv, 0).rgb;
 	float depth = depthMap.SampleLevel(samplerPoint, uv, 0).r;
+    renderTarget[DTid.xy] = float4(linearToSRGB(depth/20), 1);
+    return;
+
 	float3 worldPos = calculateWorldPosition(depth, uv);
     float roughness = rmAO.r;
     float metallic = rmAO.g;
@@ -446,7 +444,7 @@ void SSRPass( uint3 DTid : SV_DispatchThreadID )
 
     // float3 ssr = 0;
     float3 specular = 0;
-    if(roughness < 2.9f && dot(n, float3(0, 1, 0)) > 0.9f) {
+    if(roughness < 2.9f && dot(n, float3(0, 1, 0)) > 0.1f) {
         float3 ssr = evaluateSSR(n, worldPos, v, uv, uint2(outputWidth, outputHeight));
         // float3 ssr2 = evaluateSSR(h2, worldPos, v, uv, uint2(outputWidth, outputHeight));
         // float3 ssr3 = evaluateSSR(h3, worldPos, v, uv, uint2(outputWidth, outputHeight));
@@ -455,7 +453,7 @@ void SSRPass( uint3 DTid : SV_DispatchThreadID )
         specular = max(0, ssr);
     }
 
-    float3 radiance = specular;// + diffuse;
+    float3 radiance = specular * 0.8f + 0.2f *diffuse;
     radiance = linearToSRGB(radiance);
 	
     renderTarget[DTid.xy] = float4(radiance, 1);

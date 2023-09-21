@@ -68,9 +68,15 @@ void BasicGameEngine::OnInit()
     lightingPass->loadPipeline();
     ThrowIfFailed(lightingPass->commandList->Close());
 
+    HiZDephtComputePass = new HiZDepthCompute(
+        GetAssetFullPath(L"HiZGenerateCompute.hlsl").c_str(), "HiZDepthCompute", m_device, m_computeCommandAllocator);
+    HiZDephtComputePass->loadPipeline();
+    HiZDephtComputePass->depthTextureHandle = m_gbufferDsvHeap->GetGPUDescriptorHandleForHeapStart();
+    ThrowIfFailed(HiZDephtComputePass->commandList->Close());
+    
     ssrPass = new SSRPass(
         GetAssetFullPath(L"ssrCompute.hlsl").c_str(), "SSRPass", m_device, m_computeCommandAllocator);
-    ssrPass->setResources(m_gbufferRtvHeap, m_gbufferDsvHeap, m_cbvHeap, lightingPass->backBuffersHeap, iblResources, noiseTexture);
+    ssrPass->setResources(m_gbufferRtvHeap, HiZDephtComputePass->textureHeap, m_cbvHeap, lightingPass->backBuffersHeap, iblResources, noiseTexture);
     ssrPass->loadPipeline();
     ThrowIfFailed(ssrPass->commandList->Close());
 
@@ -614,7 +620,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/watchtower.glb", model);
+    GLTF_Loader::loadGltf("./Models/sponza.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);
@@ -675,7 +681,9 @@ void BasicGameEngine::OnRender()
     WaitForPreviousFrame();
 
     ID3D12CommandList* computeCommandLists[] = { 
-        lightingPass->commandList.Get(), ssrPass->commandList.Get() 
+        HiZDephtComputePass ->commandList.Get(), 
+        lightingPass->commandList.Get(), 
+        ssrPass->commandList.Get() 
     };
     computeCommandQueue->ExecuteCommandLists(_countof(computeCommandLists), computeCommandLists);
     WaitForComputeTask();
@@ -824,6 +832,10 @@ void BasicGameEngine::PopulateCommandList()
     ThrowIfFailed(lightingPass->commandList->Reset(m_computeCommandAllocator.Get(), lightingPass->computePSO.Get()));
     lightingPass->executeTasks(m_frameIndex);
     ThrowIfFailed(lightingPass->commandList->Close());
+
+    ThrowIfFailed(HiZDephtComputePass->commandList->Reset(m_computeCommandAllocator.Get(), HiZDephtComputePass->computePSO.Get()));
+    HiZDephtComputePass->executeTasks(m_fenceValue, computeCommandQueue, m_fenceEvent, m_fence);
+    ThrowIfFailed(HiZDephtComputePass->commandList->Close());
 
     m_commandList->ResourceBarrier(1, &CD3DX12_RESOURCE_BARRIER::Transition(
         lightingPass->backBufferTextures[m_frameIndex].resource.Get(), 

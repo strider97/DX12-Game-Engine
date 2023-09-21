@@ -373,7 +373,7 @@ PSOutput GBufferRenderTargets(PSInput vsOut) : SV_Target {
     normals = 2 * normals - 1;
     normals = vsOut.tangent.xyz * normals.x + vsOut.biTangent * normals.y + vsOut.normal * normals.z;
 
-    normals = (normals + 1)/2.0f;
+    normals = (vsOut.normal + 1)/2.0f;
 
     PSOutput psOutput;
 
