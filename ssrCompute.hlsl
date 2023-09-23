@@ -21,6 +21,7 @@ Texture2D skyboxIrradianceTexture : register(t5);
 Texture2D preFilterEnvMapTexture : register(t6);
 Texture2D diffuseTexture : register(t7);
 Texture2D noiseTexture : register(t8);
+Texture2D depthMapHiZ : register(t9);
 
 SamplerState samplerLinear : register(s0);
 SamplerState samplerPoint : register(s1);
@@ -119,21 +120,12 @@ uint computePowerOfTwo(int exponent)
     }
 }
 
-uint getYOffsetForPreFilterEnv(uint LOD) {
-	switch (LOD)
-    {
-        case 0: return 0;
-        case 1: return 1024;
-        case 2: return 1536;
-        case 3: return 1792;
-        case 4: return 1920;
-        case 5: return 1984;
-        case 6: return 2016;
-        case 7: return 2032;
-        case 8: return 2040;
-        case 9: return 2044;
-        default: return 0;
-    }
+uint sumOfGPOfHalf(uint a, uint n) {
+    return 2 * a * (1 - 1.f/computePowerOfTwo(n));
+}
+
+uint getYOffset(uint LOD, uint HEIGHT) {
+    return sumOfGPOfHalf(HEIGHT, LOD);
 }
 
 // ----------------------------------------------------------------------------
@@ -335,7 +327,17 @@ float findRaySquareIntersectionDist(float3 outSamplePosInTS, float3 outReflDirIn
     return outMaxDistance;
 }
 
-float3 evaluateSSR(float3 normal, float3 pos, float3 v, float2 currentUV, uint2 screenDim) {
+uint2 getTexelForUVandLOD(float2 uv, uint LOD, uint2 textureDim) {
+    uint Yoffset = getYOffset(LOD, textureDim.y);
+    uint YoffsetNext = getYOffset(LOD + 1, textureDim.y);
+    float pow2 = computePowerOfTwo(LOD);
+    uint2 lodTextureDim = uint2(textureDim.x/pow2, YoffsetNext - Yoffset);
+    uint2 texelLocation = lodTextureDim * uv - 0.5f;
+    texelLocation += uint2(0, Yoffset);
+    return texelLocation;
+}
+
+float3 evaluateSSR(float3 normal, float3 pos, float3 v, float2 currentUV, uint2 screenDim, uint2 depthTextureDim) {
     uint MAX_ITER = 512;
     float WORLD_BOUNDS = 20;
     float stepSize = 1.f/MAX_ITER;
@@ -372,7 +374,9 @@ float3 evaluateSSR(float3 normal, float3 pos, float3 v, float2 currentUV, uint2 
         float depthP1Linear = linearizeDepth(depthP1);
         if(depthP1Linear > 0.6f * 100.f)
             return 0;
-        float actualDepth = depthMap.SampleLevel(samplerPoint, uvP1, 0).r;
+        uint2 depthTexel = getTexelForUVandLOD(uvP1, 0, depthTextureDim);
+        float actualDepth = depthMapHiZ[depthTexel].r;
+        // float actualDepth = depthMap.SampleLevel(samplerPoint, uvP1, 0).r;
         if(actualDepth == 1.f) {
             p0 = p1;
             continue;
@@ -410,6 +414,7 @@ void SSRPass( uint3 DTid : SV_DispatchThreadID )
     float2 uv = (DTid.xy + 0.5f) / float2(outputWidth, outputHeight);
 	float3 diffuse = diffuseTexture.SampleLevel(samplerPoint, uv, 0).rgb;
 	float3 normals = normalsTexture.SampleLevel(samplerPoint, uv, 0).rgb;
+
     if(length(normals) < 0.1f) {
         renderTarget[DTid.xy] = float4(diffuse, 1);
         return;
@@ -417,9 +422,12 @@ void SSRPass( uint3 DTid : SV_DispatchThreadID )
 
     normals = 2 * normals - 1.0f;
 	float3 rmAO = roughnessMetallicAO.SampleLevel(samplerPoint, uv, 0).rgb;
+    uint depthTextureWidth, depthTextureHeight;
+	depthMapHiZ.GetDimensions(depthTextureWidth, depthTextureHeight);
+    uint2 depthTextureDim = uint2(depthTextureWidth, depthTextureHeight/2);
 	float depth = depthMap.SampleLevel(samplerPoint, uv, 0).r;
-    renderTarget[DTid.xy] = float4(linearToSRGB(depth/20), 1);
-    return;
+    // renderTarget[DTid.xy] = float4(linearToSRGB(depth/20), 1);
+    // return;
 
 	float3 worldPos = calculateWorldPosition(depth, uv);
     float roughness = rmAO.r;
@@ -445,7 +453,7 @@ void SSRPass( uint3 DTid : SV_DispatchThreadID )
     // float3 ssr = 0;
     float3 specular = 0;
     if(roughness < 2.9f && dot(n, float3(0, 1, 0)) > 0.1f) {
-        float3 ssr = evaluateSSR(n, worldPos, v, uv, uint2(outputWidth, outputHeight));
+        float3 ssr = evaluateSSR(n, worldPos, v, uv, uint2(outputWidth, outputHeight), depthTextureDim);
         // float3 ssr2 = evaluateSSR(h2, worldPos, v, uv, uint2(outputWidth, outputHeight));
         // float3 ssr3 = evaluateSSR(h3, worldPos, v, uv, uint2(outputWidth, outputHeight));
         // float3 ssr4 = evaluateSSR(h4, worldPos, v, uv, uint2(outputWidth, outputHeight));

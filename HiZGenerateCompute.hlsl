@@ -79,17 +79,17 @@ void HiZDepthCompute( uint3 DTid : SV_DispatchThreadID )
 	}
 
     if(level == 0) {
-        float Depth0 = depthMapTexture[DTid.xy];
-        float Depth1 = depthMapTexture[DTid.xy + uint2(1, 0)];
-        float Depth2 = depthMapTexture[DTid.xy + uint2(1, 1)];
-        float Depth3 = depthMapTexture[ DTid.xy + uint2(0, 1)];
+        float depth = depthMapTexture[DTid.xy];
+        // float Depth1 = depthMapTexture[DTid.xy + uint2(1, 0)];
+        // float Depth2 = depthMapTexture[DTid.xy + uint2(1, 1)];
+        // float Depth3 = depthMapTexture[ DTid.xy + uint2(0, 1)];
 
-        Depth1 = Depth1 == 0 ? 1000 : Depth1;
-        Depth2 = Depth2 == 0 ? 1000 : Depth2;
-        Depth3 = Depth3 == 0 ? 1000 : Depth3;
+        // Depth1 = Depth1 == 0 ? 1000 : Depth1;
+        // Depth2 = Depth2 == 0 ? 1000 : Depth2;
+        // Depth3 = Depth3 == 0 ? 1000 : Depth3;
 
-        float depth = min(min(Depth0, Depth1), min(Depth2, Depth3));
-        depth = linearizeDepth(depth);
+        // float depth = min(min(Depth0, Depth1), min(Depth2, Depth3));
+        // depth = linearizeDepth(depth);
         // depth = LinearToSrgb(depth);
         renderTarget[DTid.xy] = depth;
         return;

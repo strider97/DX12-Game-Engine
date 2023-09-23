@@ -18,6 +18,7 @@ public:
     ComPtr<ID3D12DescriptorHeap> cbvHeap;
     ComPtr<ID3D12DescriptorHeap> diffuseHeap;
     ComPtr<ID3D12DescriptorHeap> noiseHeap;
+    ComPtr<ID3D12DescriptorHeap> dsvHiResHeap;
     IBLResources iblResources;
     Texture* noiseTexture;
 
@@ -29,7 +30,7 @@ public:
 
     void setResources(ComPtr<ID3D12DescriptorHeap> &rtvHeap, ComPtr<ID3D12DescriptorHeap> &dsvHeap, 
         ComPtr<ID3D12DescriptorHeap> &cbvHeap, ComPtr<ID3D12DescriptorHeap> &diffuseHeap, IBLResources &iblResources,
-        Texture* noiseTexture)
+        Texture* noiseTexture, ComPtr<ID3D12DescriptorHeap> &dsvHiResHeap)
     {
         this->rtvHeap = rtvHeap;
         this->dsvHeap = dsvHeap;
@@ -37,6 +38,7 @@ public:
         this->iblResources = iblResources;
         this->diffuseHeap = diffuseHeap;
         this->noiseTexture = noiseTexture;
+        this->dsvHiResHeap = dsvHiResHeap;
     }
 };
 

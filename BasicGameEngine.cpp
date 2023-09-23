@@ -76,7 +76,7 @@ void BasicGameEngine::OnInit()
     
     ssrPass = new SSRPass(
         GetAssetFullPath(L"ssrCompute.hlsl").c_str(), "SSRPass", m_device, m_computeCommandAllocator);
-    ssrPass->setResources(m_gbufferRtvHeap, HiZDephtComputePass->textureHeap, m_cbvHeap, lightingPass->backBuffersHeap, iblResources, noiseTexture);
+    ssrPass->setResources(m_gbufferRtvHeap, m_gbufferDsvHeap, m_cbvHeap, lightingPass->backBuffersHeap, iblResources, noiseTexture, HiZDephtComputePass->textureHeap);
     ssrPass->loadPipeline();
     ThrowIfFailed(ssrPass->commandList->Close());
 
@@ -620,7 +620,7 @@ void BasicGameEngine::loadObjects()  {
 
 void BasicGameEngine::loadModels() {
     bufferManager = new BufferManager(m_device, m_commandQueue, m_commandList);
-    GLTF_Loader::loadGltf("./Models/sponza.glb", model);
+    GLTF_Loader::loadGltf("./Models/tesla2.glb", model);
     bufferManager->loadBuffers(model.buffers);
     bufferManager->loadMaterials(model.materials);
     bufferManager->loadImages(model);

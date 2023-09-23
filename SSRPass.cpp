@@ -82,8 +82,8 @@ void SSRPass::loadResources()
 }
 
 void SSRPass::createRootSignature() {
-    CD3DX12_ROOT_PARAMETER1 rootParameters[9];
-    CD3DX12_DESCRIPTOR_RANGE1 ranges[9];
+    CD3DX12_ROOT_PARAMETER1 rootParameters[10];
+    CD3DX12_DESCRIPTOR_RANGE1 ranges[10];
 
     ranges[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_UAV, 1, 0);
     rootParameters[0].InitAsDescriptorTable(1, &ranges[0]);
@@ -107,6 +107,8 @@ void SSRPass::createRootSignature() {
     rootParameters[7].InitAsDescriptorTable(1, &ranges[7]);
     ranges[8].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 8);
     rootParameters[8].InitAsDescriptorTable(1, &ranges[8]);
+    ranges[9].Init(D3D12_DESCRIPTOR_RANGE_TYPE_SRV, 1, 9);
+    rootParameters[9].InitAsDescriptorTable(1, &ranges[9]);
 
     ComPtr<ID3DBlob> serializedRootSig = nullptr;
     ComPtr<ID3DBlob> errorBlob = nullptr;
@@ -184,6 +186,7 @@ void SSRPass::executeTasks(UINT currentFrameIndex) {
     commandList->SetComputeRootDescriptorTable(6, iblResources.preFilterEnvMap);
     commandList->SetComputeRootDescriptorTable(7, handleDiffuseHeap);
     commandList->SetComputeRootDescriptorTable(8, noiseHeap->GetGPUDescriptorHandleForHeapStart());
+    commandList->SetComputeRootDescriptorTable(9, dsvHiResHeap->GetGPUDescriptorHandleForHeapStart());
 
     const UINT dispatchWidth = (1366 + 32 - 1) / 32;
     const UINT dispatchHeight = (768 + 32 - 1) / 32;
